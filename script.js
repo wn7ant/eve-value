@@ -1,115 +1,212 @@
-// EVE Value Calculator — single-source (ESI prices), GitHub Pages friendly
-// Data sources:
+// EVE Value Calculator — static, GitHub Pages friendly
+// Sources (static):
 // - Cash packs: packs.json (you maintain)
-// - ISK per PLEX: https://esi.evetech.net/latest/markets/prices/?datasource=tranquility
-//
-// This file focuses on rendering the "Best" pill LEFT of the number,
-// with the number RIGHT-aligned in the same cell, and rows kept horizontal.
+// - Omega plans: omega.json (you maintain)
+// - PLEX price: ESI markets/prices (single list; we pick PLEX row)
 
 // -------------------- DOM --------------------
-const TBODY   = document.getElementById('tableBody');
-const YEAR    = document.getElementById('year');
-const LAST    = document.getElementById('lastUpdate');
-const PREVIEW = document.getElementById('packsPreview');
+var TBODY   = document.getElementById('tableBody');
+var OTBODY  = document.getElementById('omegaBody');
+var YEAR    = document.getElementById('year');
+var LAST    = document.getElementById('lastUpdate');
+var REGION  = document.getElementById('region');
+var SOURCE  = document.getElementById('plexSource');
+var PREVIEW = document.getElementById('packsPreview');
 
-YEAR && (YEAR.textContent = new Date().getFullYear());
+if (YEAR) YEAR.textContent = new Date().getFullYear();
 
-// -------------------- Config --------------------
-const ESI_PRICES_URL = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
+// -------------------- Constants --------------------
+var TYPE_PLEX = 44992;
+var ESI_PRICES_URL = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
 
 // -------------------- State --------------------
-let packs = [];
-let plexISK = null; // ISK per PLEX
+var packs = [];
+var omegaPlans = [];
+var plexISK = null;       // ISK per 1 PLEX (from ESI prices list)
+var bestPerPLEX = null;   // lowest $/PLEX among packs
 
 // -------------------- Helpers --------------------
-function fmt(n, digits = 2) {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
+function fmt(n, digits) {
+  if (digits === void 0) digits = 2;
+  if (n === null || n === undefined || isNaN(Number(n))) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
-function showStatus(msg, isError = false) {
-  TBODY.innerHTML = `<tr><td colspan="6" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
+function showStatus(msg, isError) {
+  if (isError === void 0) isError = false;
+  TBODY.innerHTML = '<tr><td colspan="6" class="' + (isError ? '' : 'muted') + '">' + msg + '</td></tr>';
+}
+
+function showOmegaStatus(msg, isError) {
+  if (isError === void 0) isError = false;
+  OTBODY.innerHTML = '<tr><td colspan="6" class="' + (isError ? '' : 'muted') + '">' + msg + '</td></tr>';
+}
+
+function median(nums) {
+  if (!nums.length) return NaN;
+  var v = nums.slice().sort(function(a,b){return a-b;});
+  var mid = Math.floor(v.length/2);
+  return v.length % 2 ? v[mid] : (v[mid-1]+v[mid])/2;
+}
+
+function average(nums) {
+  if (!nums.length) return NaN;
+  var sum = 0;
+  for (var i=0;i<nums.length;i++) sum += nums[i];
+  return sum / nums.length;
+}
+
+function uiAgg() {
+  var v = (SOURCE && (SOURCE.value==='median' || SOURCE.value==='avg' || SOURCE.value==='min')) ? SOURCE.value : 'median';
+  return v;
+}
+
+function pickAggregation(prices, mode) {
+  if (!prices.length) return NaN;
+  if (mode === 'min') return Math.min.apply(Math, prices);
+  if (mode === 'avg') return average(prices);
+  return median(prices);
 }
 
 // -------------------- Data Loads --------------------
-async function loadPacks() {
-  const res = await fetch('packs.json', { cache: 'no-store' });
-  if (!res.ok) throw new Error(`packs.json HTTP ${res.status}`);
-  packs = await res.json();
-  if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
+function loadJSON(url) {
+  return fetch(url, { cache: 'no-store' }).then(function(res){
+    if (!res.ok) throw new Error(url + ' HTTP ' + res.status);
+    return res.json();
+  });
 }
 
-// ESI prices endpoint returns an array of objects, each with type_id and adjusted_price/average_price.
-// We will pick the entry where type_id === 44992 (PLEX) and use average_price if present; else adjusted_price.
-async function fetchPLEXfromESI() {
-  const res = await fetch(ESI_PRICES_URL, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`ESI HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data) || !data.length) throw new Error('ESI returned empty array.');
-
-  const plexRow = data.find(d => Number(d.type_id) === 44992);
-  if (!plexRow) throw new Error('PLEX not found in ESI prices payload.');
-
-  // Choose a price field; average_price is often present; fallback to adjusted_price.
-  const candidate = Number(plexRow.average_price ?? plexRow.adjusted_price);
-  if (!isFinite(candidate) || candidate <= 0) {
-    throw new Error('PLEX price not available or zero from ESI.');
-  }
-
-  plexISK = candidate;
-  LAST && (LAST.textContent = `PLEX via ESI (avg/adj): ${new Date().toLocaleString()}`);
+function loadPacks() {
+  return loadJSON('packs.json').then(function(data){
+    packs = data;
+    if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
+  });
 }
 
-// -------------------- Compute/Render --------------------
-function renderBestCell(isBest, valueStr) {
-  // Pill left, number right, inside a flex row that fills the cell width
-  const pill = isBest ? '<span class="pill best">Best</span>' : '<span class="pill empty">Best</span>';
-  return `<span class="cell-split">${pill}<span class="numval">${valueStr}</span></span>`;
+function loadOmega() {
+  return loadJSON('omega.json').then(function(data){
+    omegaPlans = data;
+  });
 }
 
-function computeRows() {
-  if (!packs.length) { showStatus('No packs loaded.'); return; }
-  if (!plexISK) { showStatus('Waiting for PLEX price…'); return; }
+// ESI "markets/prices" returns an array of {type_id, average_price?, adjusted_price?}
+// We pick the PLEX row and use average_price if present; else adjusted_price.
+function fetchPLEXfromESI() {
+  return loadJSON(ESI_PRICES_URL).then(function(arr){
+    if (!arr || !arr.length) throw new Error('ESI prices returned empty array.');
+    var row = null;
+    for (var i=0;i<arr.length;i++){
+      if (Number(arr[i].type_id) === TYPE_PLEX) { row = arr[i]; break; }
+    }
+    if (!row) throw new Error('PLEX (type_id 44992) not found in ESI prices.');
+    var price = Number(row.average_price || row.adjusted_price || NaN);
+    if (!isFinite(price) || price <= 0) throw new Error('PLEX price missing or invalid in ESI.');
+    plexISK = price;
+    if (LAST) LAST.textContent = 'PLEX from ESI prices at ' + new Date().toLocaleString();
+  });
+}
 
-  const rows = packs.map(p => {
-    const price = (p.sale_price_usd ?? p.price_usd);
-    const perPLEX = price / p.plex_amount;
-    const cashPerISK = price / (p.plex_amount * plexISK);
-    return { ...p, price, perPLEX, cashPerISK };
+// -------------------- Compute/Render: Packs --------------------
+function computePackRows() {
+  if (!packs.length) { showStatus('No packs loaded.'); return []; }
+  if (!plexISK) { showStatus('Waiting for PLEX price…'); return []; }
+
+  var rows = packs.map(function(p){
+    var price = (p.sale_price_usd != null ? p.sale_price_usd : p.price_usd);
+    var perPLEX = price / p.plex_amount;
+    var cashPerISK = price / (p.plex_amount * plexISK);
+    return { name:p.name, plex_amount:p.plex_amount, price:price, perPLEX:perPLEX, cashPerISK:cashPerISK, sale:p.sale_price_usd!=null };
   });
 
-  const bestPerPLEX    = Math.min(...rows.map(r => r.perPLEX));
-  const bestCashPerISK = Math.min(...rows.map(r => r.cashPerISK));
+  bestPerPLEX = Math.min.apply(Math, rows.map(function(r){return r.perPLEX;}));
+  var bestCashPerISK = Math.min.apply(Math, rows.map(function(r){return r.cashPerISK;}));
 
-  TBODY.innerHTML = rows.map(r => {
-    const isBestA = Math.abs(r.perPLEX - bestPerPLEX) < 1e-12;
-    const isBestB = Math.abs(r.cashPerISK - bestCashPerISK) < 1e-12;
-    const bestClass = (isBestA || isBestB) ? ' class="highlight"' : '';
-    return `<tr${bestClass}>
-      <td>${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
-      <td class="num">$${fmt(r.price, 2)}</td>
-      <td class="num">${fmt(r.plex_amount, 0)}</td>
-      <td class="num">${renderBestCell(isBestA, `$${fmt(r.perPLEX, 4)}`)}</td>
-      <td class="num">${fmt(plexISK, 0)}</td>
-      <td class="num">${renderBestCell(isBestB, `$${fmt(r.cashPerISK, 9)}`)}</td>
-    </tr>`;
+  TBODY.innerHTML = rows.map(function(r){
+    var isBestA = Math.abs(r.perPLEX - bestPerPLEX) < 1e-12;
+    var isBestB = Math.abs(r.cashPerISK - bestCashPerISK) < 1e-12;
+    var bestClass = (isBestA || isBestB) ? ' class="highlight"' : '';
+    // pill left, number right (CSS handles layout)
+    return '<tr'+bestClass+'>\
+      <td>'+r.name+(r.sale ? ' <span class="pill">Sale</span>' : '')+'</td>\
+      <td class="num">$'+fmt(r.price,2)+'</td>\
+      <td class="num">'+fmt(r.plex_amount,0)+'</td>\
+      <td class="num"><span class="pill best'+(isBestA?'':' hidden')+'">Best</span><span class="numval">$'+fmt(r.perPLEX,4)+'</span></td>\
+      <td class="num">'+fmt(plexISK,0)+'</td>\
+      <td class="num"><span class="pill best'+(isBestB?'':' hidden')+'">Best</span><span class="numval">$'+fmt(r.cashPerISK,9)+'</span></td>\
+    </tr>';
+  }).join('');
+
+  return rows;
+}
+
+// -------------------- Compute/Render: Omega --------------------
+function renderOmegaTable() {
+  if (!omegaPlans.length) { showOmegaStatus('No omega plans loaded.'); return; }
+  if (!isFinite(bestPerPLEX)) { showOmegaStatus('Waiting for packs to compute best $/PLEX…'); return; }
+
+  // Build rows: cash vs plex route using bestPerPLEX
+  var rows = omegaPlans.map(function(o){
+    var cash = Number(o.cash_usd);
+    var plexNeeded = Number(o.plex_amount);
+    var viaPlex = plexNeeded * bestPerPLEX;
+    var delta = cash - viaPlex; // positive means PLEX route is cheaper
+    return {
+      label: o.label,
+      months: o.months,
+      cash: cash,
+      plexNeeded: plexNeeded,
+      perPLEXUsed: bestPerPLEX,
+      viaPlex: viaPlex,
+      save: delta
+    };
+  });
+
+  // Render
+  OTBODY.innerHTML = rows.map(function(r){
+    var saveStr = (r.save === 0) ? '$0.00' : (r.save > 0 ? ('+$'+fmt(r.save,2)) : ('-$'+fmt(Math.abs(r.save),2)));
+    return '<tr>\
+      <td>'+r.label+' ('+r.months+'m)</td>\
+      <td class="num">$'+fmt(r.cash,2)+'</td>\
+      <td class="num">'+fmt(r.plexNeeded,0)+'</td>\
+      <td class="num">$'+fmt(r.perPLEXUsed,4)+'</td>\
+      <td class="num">$'+fmt(r.viaPlex,2)+'</td>\
+      <td class="num">'+saveStr+'</td>\
+    </tr>';
   }).join('');
 }
 
+// -------------------- Manual Override (optional) --------------------
+window.setManualPLEX = function(iskPerPLEX) {
+  var v = Number(iskPerPLEX);
+  if (!isFinite(v) || v <= 0) { alert('Invalid manual ISK/PLEX value.'); return; }
+  plexISK = v;
+  if (LAST) LAST.textContent = 'Manual override: ISK/PLEX = '+fmt(v,0)+' at '+new Date().toLocaleString();
+  // Recompute both tables
+  computePackRows();
+  renderOmegaTable();
+};
+
 // -------------------- Refresh Flow --------------------
-async function refresh() {
-  try {
-    showStatus('Loading…');
-    await loadPacks();
-    await fetchPLEXfromESI();
-    computeRows();
-  } catch (e) {
-    console.error(e);
-    showStatus(`Error: ${e.message}`, true);
-  }
+function refresh() {
+  showStatus('Loading…');
+  showOmegaStatus('Loading…');
+  Promise.resolve()
+    .then(loadPacks)
+    .then(loadOmega)
+    .then(fetchPLEXfromESI)
+    .then(function(){
+      computePackRows();
+      renderOmegaTable();
+    })
+    .catch(function(e){
+      console.error(e);
+      showStatus('Error: ' + e.message, true);
+      showOmegaStatus('Error: ' + e.message, true);
+    });
 }
 
-document.getElementById('refresh')?.addEventListener('click', refresh);
+var btn = document.getElementById('refresh');
+if (btn) btn.addEventListener('click', refresh);
 
 // Auto-run on load
 refresh();
