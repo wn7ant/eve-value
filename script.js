@@ -1,6 +1,7 @@
-// EVE Value Calculator — single-source (ESI only)
-// Source (JSON array): https://esi.evetech.net/latest/markets/prices/?datasource=tranquility
-// We pick PLEX (type_id 44992) and use average_price (fallback adjusted_price).
+// EVE Value Calculator — ESI-only (no fallbacks)
+// Data:
+// - Cash packs: packs.json (you maintain)
+// - ISK per PLEX: ESI markets/prices (average_price or adjusted_price), no region needed
 
 // -------------------- DOM --------------------
 const TBODY   = document.getElementById('tableBody');
@@ -8,15 +9,15 @@ const YEAR    = document.getElementById('year');
 const LAST    = document.getElementById('lastUpdate');
 const PREVIEW = document.getElementById('packsPreview');
 
-if (YEAR) YEAR.textContent = new Date().getFullYear();
+YEAR && (YEAR.textContent = new Date().getFullYear());
 
 // -------------------- Constants --------------------
 const TYPE_PLEX = 44992;
-const ESI_PRICES_URL = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
+const ESI_PRICES = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
 
 // -------------------- State --------------------
 let packs = [];
-let plexISK = null; // ISK per 1 PLEX
+let plexISK = null; // ISK per PLEX
 
 // -------------------- Helpers --------------------
 function fmt(n, digits = 2) {
@@ -28,7 +29,7 @@ function showStatus(msg, isError = false) {
   TBODY.innerHTML = `<tr><td colspan="6" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
 }
 
-// -------------------- Data loads --------------------
+// -------------------- Loads --------------------
 async function loadPacks() {
   const res = await fetch('packs.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`packs.json HTTP ${res.status}`);
@@ -36,37 +37,57 @@ async function loadPacks() {
   if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
 }
 
+// Fetch ISK-per-PLEX from ESI markets/prices
+// Response is an array of { type_id, average_price, adjusted_price }
 async function fetchPLEXfromESI() {
-  const res = await fetch(ESI_PRICES_URL, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`ESI prices HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('ESI prices returned an empty array.');
+  let res;
+  try {
+    res = await fetch(ESI_PRICES, { cache: 'no-store' });
+  } catch (netErr) {
+    // This is a network-layer failure (CORS/extension/VPN/etc.)
+    // Show the raw error message for easier troubleshooting.
+    throw new Error(`Fetch failed (network/CORS). Details: ${netErr.message}`);
   }
 
-  // Find PLEX row
+  if (!res.ok) {
+    throw new Error(`ESI HTTP ${res.status}`);
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (e) {
+    throw new Error('ESI returned non-JSON or unreadable response.');
+  }
+
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error('ESI returned an empty array for markets/prices.');
+  }
+
   const row = data.find(d => Number(d.type_id) === TYPE_PLEX);
   if (!row) {
-    throw new Error('PLEX (type_id 44992) not found in ESI prices payload.');
+    // Helpful hint: if you can see 44992 in the raw URL output, but not here,
+    // check the browser console for blocked cross-site requests (extensions, VPNs, etc.).
+    throw new Error('PLEX (type_id 44992) not found in ESI markets/prices.');
   }
 
-  // Prefer average_price; fallback to adjusted_price
-  const candidate =
-    (row.average_price && Number(row.average_price)) ||
-    (row.adjusted_price && Number(row.adjusted_price)) ||
-    NaN;
+  const avg = Number(row.average_price);
+  const adj = Number(row.adjusted_price);
+  const chosen = (isFinite(avg) && avg > 0) ? avg
+                 : (isFinite(adj) && adj > 0) ? adj
+                 : NaN;
 
-  if (!isFinite(candidate) || candidate <= 0) {
-    throw new Error('PLEX price from ESI is missing or zero (average/adjusted).');
+  if (!isFinite(chosen) || chosen <= 0) {
+    // Include a small snippet to help debug
+    const snippet = JSON.stringify({ average_price: row.average_price, adjusted_price: row.adjusted_price });
+    throw new Error(`PLEX price in ESI is missing/zero. Raw: ${snippet}`);
   }
 
-  plexISK = candidate; // ISK per 1 PLEX
-  if (LAST) {
-    LAST.textContent = `PLEX via ESI prices (${candidate.toLocaleString(undefined, {maximumFractionDigits:0})} ISK/PLEX) @ ${new Date().toLocaleString()}`;
-  }
+  plexISK = chosen;
+  LAST && (LAST.textContent = `PLEX via ESI markets/prices at ${new Date().toLocaleString()}`);
 }
 
-// -------------------- Compute / Render --------------------
+// -------------------- Compute/Render --------------------
 function computeRows() {
   if (!packs.length) { showStatus('No packs loaded.'); return; }
   if (!plexISK) { showStatus('Waiting for PLEX price…'); return; }
@@ -89,14 +110,14 @@ function computeRows() {
       <td>${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
       <td class="num">$${fmt(r.price, 2)}</td>
       <td class="num">${fmt(r.plex_amount, 0)}</td>
-      <td class="num">$${fmt(r.perPLEX, 4)}${isBestA ? ' <span class="pill best">Best</span>' : ''}</td>
+      <td class="num">$${fmt(r.perPLEX, 4)} ${isBestA ? ' <span class="pill best">Best</span>' : ''}</td>
       <td class="num">${fmt(plexISK, 0)}</td>
-      <td class="num">$${fmt(r.cashPerISK, 9)}${isBestB ? ' <span class="pill best">Best</span>' : ''}</td>
+      <td class="num">$${fmt(r.cashPerISK, 9)} ${isBestB ? ' <span class="pill best">Best</span>' : ''}</td>
     </tr>`;
   }).join('');
 }
 
-// -------------------- Manual override (optional) --------------------
+// -------------------- Manual Override (optional) --------------------
 window.setManualPLEX = function(iskPerPLEX) {
   const v = Number(iskPerPLEX);
   if (!isFinite(v) || v <= 0) {
@@ -104,11 +125,11 @@ window.setManualPLEX = function(iskPerPLEX) {
     return;
   }
   plexISK = v;
-  if (LAST) LAST.textContent = `Manual override: ISK/PLEX = ${fmt(v,0)} @ ${new Date().toLocaleString()}`;
+  LAST && (LAST.textContent = `Manual override: ISK/PLEX = ${fmt(v,0)} at ${new Date().toLocaleString()}`);
   computeRows();
 };
 
-// -------------------- Refresh flow --------------------
+// -------------------- Refresh Flow --------------------
 async function refresh() {
   try {
     showStatus('Loading…');
