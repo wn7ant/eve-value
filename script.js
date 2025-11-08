@@ -1,60 +1,73 @@
-// EVE Value Calculator (static, no backend)
-// Cash packs: packs.json (you maintain)
-// PLEX→ISK: Fuzzwork aggregates first; fallback to ESI sell orders if Fuzzwork returns zeros
-// Works on GitHub Pages / any static host. For local testing, avoid file:// (use a tiny local server).
+// EVE Value Calculator
 
-const TABLE = document.getElementById('valueTable');
-const TBODY = document.getElementById('tableBody');
+// ---- DOM refs
+const TABLE   = document.getElementById('valueTable');
+const TBODY   = document.getElementById('tableBody');
 const PREVIEW = document.getElementById('packsPreview');
-const YEAR = document.getElementById('year');
-const LAST = document.getElementById('lastUpdate');
-const REGION = document.getElementById('region');
-const SOURCE = document.getElementById('plexSource');
+const YEAR    = document.getElementById('year');
+const LAST    = document.getElementById('lastUpdate');
+const REGION  = document.getElementById('region');
+const SOURCE  = document.getElementById('plexSource');
+if (YEAR) YEAR.textContent = new Date().getFullYear();
 
-YEAR && (YEAR.textContent = new Date().getFullYear());
+// ---- Constants
+const FUZZWORK = 'https://market.fuzzwork.co.uk/aggregates/';
+const PLEX_TYPE = 44992; // PLEX type id
 
-const FUZZWORK_BASE = 'https://market.fuzzwork.co.uk/aggregates/';
-const ESI_BASE = 'https://esi.evetech.net/latest';
-const PLEX_TYPE = 44992; // PLEX
+// ---- State
 let packs = [];
-let plexISK = null; // ISK per PLEX (sell side)
+let plexISK = null; // ISK per PLEX
 
+// ---- Utilities
 function fmt(n, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
 function showStatus(msg, isError = false) {
-  const row = `<tr><td colspan="6" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
-  TBODY.innerHTML = row;
-  console[(isError ? 'error' : 'log')](msg);
+  TBODY.innerHTML = `<tr><td colspan="6" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
 }
 
-function isLocalFile() {
-  return location.protocol === 'file:';
-}
+function ensureManualInput() {
+  // Adds a manual PLEX price input under the Refresh button if not present
+  if (document.getElementById('manual-plex-wrap')) return;
 
-// Simple HEAD probe (optional, mainly to give better local-file tips)
-async function netProbe() {
-  try {
-    const res = await fetch(FUZZWORK_BASE, { method: 'HEAD' });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  const btn = document.getElementById('refresh');
+  if (!btn || !btn.parentElement) return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'manual-plex-wrap';
+  wrap.style.marginTop = '8px';
+  wrap.innerHTML = `
+    <label style="display:grid;gap:6px;max-width:320px">
+      Manual ISK per PLEX (fallback)
+      <input id="manual-plex" type="number" step="1" min="1" placeholder="Enter ISK per 1 PLEX (e.g., 4,000,000)" style="padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0a0f14;color:var(--text)">
+    </label>
+    <button class="btn" id="apply-manual">Use Manual Price</button>
+  `;
+  btn.parentElement.appendChild(wrap);
+
+  document.getElementById('apply-manual').addEventListener('click', () => {
+    const v = Number(document.getElementById('manual-plex').value);
+    if (!isFinite(v) || v <= 0) {
+      showStatus('Please enter a valid ISK-per-PLEX number.', true);
+      return;
+    }
+    plexISK = v;
+    LAST.textContent = `Using manual ISK/PLEX: ${v.toLocaleString()}`;
+    computeRows();
+  });
 }
 
 function validateInputs() {
-  const regionVal = REGION.value;
-  if (!/^\d+$/.test(regionVal)) {
-    throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
-  }
-  if (!['median', 'avg', 'min'].includes(SOURCE.value)) {
-    throw new Error(`Unknown plexSource "${SOURCE.value}"`);
-  }
-  return Number(regionVal);
+  const regionVal = REGION ? REGION.value : '10000002';
+  if (!/^\d+$/.test(regionVal)) throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
+  const src = SOURCE ? SOURCE.value : 'median';
+  if (!['median', 'avg', 'min'].includes(src)) throw new Error(`Unknown plexSource "${src}"`);
+  return { region: Number(regionVal), source: src };
 }
 
+// ---- Data
 async function loadPacks() {
   const res = await fetch('packs.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to load packs.json (HTTP ${res.status})`);
@@ -62,125 +75,51 @@ async function loadPacks() {
   if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
 }
 
-function extractFromFuzzwork(obj, sourceKey) {
-  // obj shape: { "44992": { sell: { median, avg, min, ... }, buy: { ... } } }
-  const node = obj && obj[String(PLEX_TYPE)];
-  if (!node || !node.sell) return null;
-  const { sell } = node;
-
-  // Normalize field names we care about
-  const map = {
-    median: sell.median,
-    avg: sell.avg ?? sell.weightedAverage, // sometimes "avg" may not exist; try weightedAverage
-    min: sell.min
-  };
-
-  const val = map[sourceKey];
-  // Fuzzwork may return 0s during outages; treat 0 as invalid
-  if (typeof val !== 'number' || !isFinite(val) || val <= 0) return null;
-  return { median: map.median, avg: map.avg, min: map.min };
-}
-
-// Fetch from Fuzzwork aggregates
-async function tryFuzzwork(region, sourceKey) {
-  const url = `${FUZZWORK_BASE}?region=${encodeURIComponent(region)}&types=${PLEX_TYPE}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Fuzzwork HTTP ${res.status}`);
-  const data = await res.json();
-  const vals = extractFromFuzzwork(data, sourceKey);
-  if (!vals) return null;
-  const chosen = sourceKey === 'avg' ? vals.avg : sourceKey === 'min' ? vals.min : vals.median;
-  if (typeof chosen !== 'number' || !isFinite(chosen) || chosen <= 0) return null;
-  return { chosen, all: vals, source: 'Fuzzwork' };
-}
-
-// Fetch sell orders from ESI and compute stats
-async function fetchAllEsiSellOrders(region, typeId, maxPages = 4) {
-  // ESI uses pagination via X-Pages header; fetch up to maxPages for speed
-  const firstURL = `${ESI_BASE}/markets/${region}/orders/?order_type=sell&type_id=${typeId}&datasource=tranquility&page=1`;
-  const firstRes = await fetch(firstURL, { cache: 'no-store' });
-  if (!firstRes.ok) throw new Error(`ESI HTTP ${firstRes.status}`);
-  const totalPages = Number(firstRes.headers.get('X-Pages')) || 1;
-  const first = await firstRes.json();
-
-  const pagesToGet = Math.min(totalPages, maxPages);
-  const promises = [];
-  for (let p = 2; p <= pagesToGet; p++) {
-    const url = `${ESI_BASE}/markets/${region}/orders/?order_type=sell&type_id=${typeId}&datasource=tranquility&page=${p}`;
-    promises.push(fetch(url, { cache: 'no-store' }).then(r => {
-      if (!r.ok) throw new Error(`ESI HTTP ${r.status} on page ${p}`);
-      return r.json();
-    }));
-  }
-  const rest = (await Promise.all(promises).catch(e => { console.error(e); return []; })).flat();
-  return first.concat(rest);
-}
-
-function statsFromPrices(prices) {
-  if (!prices.length) return null;
-  const sorted = prices.slice().sort((a, b) => a - b);
-  const n = sorted.length;
-  const median = n % 2 ? sorted[(n - 1) / 2] : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
-  const avg = sorted.reduce((a, b) => a + b, 0) / n;
-  const min = sorted[0];
-  return { median, avg, min };
-}
-
-async function tryEsi(region, sourceKey) {
-  const orders = await fetchAllEsiSellOrders(region, PLEX_TYPE, 4);
-  const prices = orders
-    .map(o => o.price)
-    .filter(x => typeof x === 'number' && isFinite(x) && x > 0);
-
-  const s = statsFromPrices(prices);
-  if (!s) return null;
-  const chosen = sourceKey === 'avg' ? s.avg : sourceKey === 'min' ? s.min : s.median;
-  return { chosen, all: s, source: 'ESI' };
-}
-
+// ---- Market fetch
 async function fetchPlexISK() {
-  const region = validateInputs(); // throws if bad
-  const sourceKey = SOURCE.value;  // 'median' | 'avg' | 'min'
+  const { region, source } = validateInputs();
+  const url = `${FUZZWORK}?region=${region}&types=${PLEX_TYPE}`;
 
-  // Give a helpful tip if running locally via file:// (many browsers block cross-origin fetch)
-  if (isLocalFile()) {
-    const ok = await netProbe();
-    if (!ok) {
-      throw new Error(`Running from file:// and cross-origin fetch appears blocked by the browser.\n\nStart a tiny local server and reload:\n\n  python3 -m http.server\n\nThen visit http://localhost:8000/`);
-    }
-  }
-
-  // 1) Try Fuzzwork
+  let data;
   try {
-    const fw = await tryFuzzwork(region, sourceKey);
-    if (fw && typeof fw.chosen === 'number' && isFinite(fw.chosen) && fw.chosen > 0) {
-      plexISK = fw.chosen;
-      LAST && (LAST.textContent = `PLEX sell ${sourceKey} via ${fw.source}: ${new Date().toLocaleString()}`);
-      return;
-    }
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`HTTP ${res.status} from Fuzzwork`);
+    data = await res.json();
   } catch (e) {
-    console.warn('Fuzzwork failed:', e.message);
+    throw new Error(`Could not fetch PLEX price: ${e.message}`);
   }
 
-  // 2) Fallback to ESI
-  const esi = await tryEsi(region, sourceKey);
-  if (!esi || !(typeof esi.chosen === 'number' && isFinite(esi.chosen) && esi.chosen > 0)) {
-    throw new Error('Unable to determine PLEX sell price from Fuzzwork or ESI.');
+  // Defensive parsing
+  const plexObj = data && data[String(PLEX_TYPE)];
+  const sell = plexObj && plexObj.sell;
+  if (!sell) {
+    ensureManualInput();
+    throw new Error('PLEX data missing in API response. You can enter a manual ISK/PLEX value below.');
   }
 
-  plexISK = esi.chosen;
-  LAST && (LAST.textContent = `PLEX sell ${sourceKey} via ${esi.source}: ${new Date().toLocaleString()}`);
+  const map = { median: sell.median, avg: sell.avg, min: sell.min };
+  const val = map[source];
+
+  // Some times the endpoint returns zeros across the board; detect that explicitly
+  const allZero = ['median', 'avg', 'min', 'weightedAverage', 'max', 'min', 'stddev', 'volume', 'orderCount', 'percentile']
+    .every(k => (typeof sell[k] === 'number' ? sell[k] === 0 : true));
+
+  if (!isFinite(val) || val <= 0 || allZero) {
+    ensureManualInput();
+    throw new Error(
+      'Price feed returned zeros. This occasionally happens. ' +
+      'Enter a manual ISK per PLEX value below and click “Use Manual Price”.'
+    );
+  }
+
+  plexISK = val;
+  if (LAST) LAST.textContent = `PLEX sell ${source} fetched: ${new Date().toLocaleString()}`;
 }
 
+// ---- Render
 function computeRows() {
-  if (!packs.length) {
-    TBODY.innerHTML = '<tr><td colspan="6" class="muted">No packs loaded.</td></tr>';
-    return;
-  }
-  if (!plexISK) {
-    TBODY.innerHTML = '<tr><td colspan="6" class="muted">Waiting for PLEX price…</td></tr>';
-    return;
-  }
+  if (!packs.length) { showStatus('No packs loaded.'); return; }
+  if (!plexISK) { showStatus('Waiting for PLEX price…'); return; }
 
   const rows = packs.map(p => {
     const price = p.sale_price_usd ?? p.price_usd;
@@ -207,18 +146,20 @@ function computeRows() {
   }).join('');
 }
 
+// ---- Orchestration
 async function refresh() {
   showStatus('Loading…');
   try {
-    await loadPacks();     // reads packs.json
-    await fetchPlexISK();  // Fuzzwork or ESI fallback
-    computeRows();         // render
+    await loadPacks();
+    await fetchPlexISK();   // may throw & trigger manual input path
+    computeRows();
   } catch (e) {
+    console.error(e);
     showStatus(`Error: ${e.message}`, true);
   }
 }
 
 document.getElementById('refresh')?.addEventListener('click', refresh);
 
-// Auto-refresh on load
+// Auto-run on load
 refresh();
