@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EVE Value — PLEX & ISK Calculator</title>
+  <meta name="description" content="Find the lowest cash-per-PLEX and cash-per-ISK using editable pack data and live market prices." />
+  <meta name="theme-color" content="#0b0f14" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="./">
+      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" class="brand-mark"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4zM7 8v4c0 3.2 1.8 5.6 5 7.4 3.2-1.8 5-4.2 5-7.4V8l-5-2-5 2z" /></svg>
+      <span class="brand-text">EVE Value</span>
+    </a>
+    <nav class="nav">
+      <a href="#calculator">Calculator</a>
+      <a href="#packs">Packs JSON</a>
+      <a href="#about">About</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  <section id="calculator" class="hero">
+    <h1 class="tight">Lowest <span class="accent">cash&nbsp;per&nbsp;PLEX</span> and <span class="accent">cash&nbsp;per&nbsp;ISK</span></h1>
+    <p class="muted">Editable cash packs + live PLEX&rightarrow;ISK from the market. No scraping, no cookies.</p>
+
+    <div class="panel">
+      <div class="grid-3">
+        <label>Currency
+          <select id="currency">
+            <option value="USD" selected>USD</option>
+          </select>
+        </label>
+        <label>Region (PLEX price)
+          <select id="region">
+            <option value="10000002" selected>The Forge (Jita)</option>
+          </select>
+        </label>
+        <label>PLEX price source
+          <select id="plexSource">
+            <option value="median" selected>Sell Median (Fuzzwork)</option>
+            <option value="avg">Sell Avg (Fuzzwork)</option>
+            <option value="min">Min Sell (Fuzzwork)</option>
+          </select>
+        </label>
+      </div>
+      <button class="btn" id="refresh">Refresh Prices</button>
+      <small class="muted" id="lastUpdate"></small>
+    </div>
+
+    <div class="table-wrap">
+      <table id="valueTable">
+        <thead>
+          <tr>
+            <th>Pack</th>
+            <th class="num">Cash Price</th>
+            <th class="num">PLEX</th>
+            <th class="num">$/PLEX</th>
+            <th class="num">ISK per PLEX</th>
+            <th class="num">$/ISK</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="6" class="muted">Loading packs…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="legend muted">
+      <span class="pill best">Best Value</span> = lowest cost-per-unit in its column
+    </div>
+  </section>
+
+  <section id="packs" class="section">
+    <h2>Edit your pack data</h2>
+    <p>Open <code>packs.json</code> and change prices or add sales. No backend required.</p>
+    <pre class="code"><code id="packsPreview"></code></pre>
+  </section>
+
+  <section id="about" class="section">
+    <h2>About</h2>
+    <p>Lightweight, static calculator. Cash pack prices come from <code>packs.json</code> (you maintain them). PLEX→ISK comes live from Fuzzwork market aggregates (region-selectable). This avoids scraping the EVE Store/NES and keeps the tool stable.</p>
+    <p class="muted">EVE Online® and CCP are trademarks of CCP hf. This site is not affiliated with or endorsed by CCP.</p>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <small>&copy; <span id="year"></span> EVE Value (fan-made)</small>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

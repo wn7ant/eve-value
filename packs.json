@@ -1,0 +1,23 @@
+[
+  {
+    "name": "PLEX Pack 1",
+    "plex_amount": 100,
+    "price_usd": 4.99
+  },
+  {
+    "name": "PLEX Pack 2",
+    "plex_amount": 500,
+    "price_usd": 24.99
+  },
+  {
+    "name": "PLEX Pack 3",
+    "plex_amount": 1100,
+    "price_usd": 49.99
+  },
+  {
+    "name": "PLEX Pack 4 (Sale)",
+    "plex_amount": 2860,
+    "price_usd": 124.99,
+    "sale_price_usd": 99.99
+  }
+]
