@@ -99,7 +99,6 @@ function computePacksTable(){
     return `<tr${rowClass}>
       <td>${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
       <td class="num">$${fmt(r.price,2)}</td>
-      <td class="num">${fmt(r.plex_amount,0)}</td>
       <td class="num leftpill">${perPLEXCell}</td>
       <td class="num">${fmt(plexISK,0)}</td>
       <td class="num leftpill">${perBilCell}</td>
