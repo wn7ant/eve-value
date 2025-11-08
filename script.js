@@ -150,9 +150,17 @@ function computeRows() {
       <td>${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
       <td class="num">$${fmt(r.price, 2)}</td>
       <td class="num">${fmt(r.plex_amount, 0)}</td>
-      <td class="num">$${fmt(r.perPLEX, 4)} ${isBestA ? ' <span class="pill best">Best</span>' : ''}</td>
-      <td class="num">${fmt(plexISK, 0)}</td>
-      <td class="num">$${fmt(r.cashPerISK, 9)} ${isBestB ? ' <span class="pill best">Best</span>' : ''}</td>
+      <td class="num left-tag">
+  ${isBestA ? '<span class="pill best">Best</span> ' : ''}
+  $${fmt(r.perPLEX, 4)}
+</td>
+
+<td class="num">${fmt(plexISK, 0)}</td>
+
+<td class="num left-tag">
+  ${isBestB ? '<span class="pill best">Best</span> ' : ''}
+  $${fmt(r.cashPerISK, 9)}
+</td>
     </tr>`;
   }).join('');
 }
