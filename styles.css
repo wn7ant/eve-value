@@ -89,6 +89,18 @@ td.num, th.num { text-align:right; }
   text-align:right;
 }
 
+/* Ensure first column headers remain left-aligned */
+#valueTable thead th:first-child,
+#omegaTable thead th:first-child {
+  text-align: left !important;
+}
+
+/* And ensure the first column cells stay left-aligned too */
+#valueTable tbody td:first-child,
+#omegaTable tbody td:first-child {
+  text-align: left !important;
+}
+
 /* Highlight best rows without breaking borders */
 tr.highlight td{
   background:rgba(76,194,255,0.08);
