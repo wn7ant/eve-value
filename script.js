@@ -163,6 +163,17 @@ function computeRows() {
 </td>
     </tr>`;
   }).join('');
+/* Align best-value tags to the left inside numeric cells */
+td.left-tag {
+  text-align:left;
+  white-space:nowrap;
+}
+
+/* Make sure the number itself doesn't shift vertically */
+td.left-tag .pill.best {
+  margin-right:6px;
+  vertical-align:middle;
+}
 }
 
 // -------------------- Manual Override --------------------
