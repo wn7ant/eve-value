@@ -1,4 +1,4 @@
-/* Minimal pro styling */
+/* Minimal pro styling (Safari/Edge friendly) */
 :root{
   --bg:#0b0f14;
   --panel:#10161f;
@@ -16,75 +16,97 @@
 *{box-sizing:border-box}
 html{color-scheme:dark}
 body{
-  margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial;
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
   background: radial-gradient(1200px 600px at 70% -10%, #0e1620 0%, #0b0f14 60%) no-repeat, var(--bg);
-  color:var(--text); line-height:1.6;
+  color:var(--text);
+  line-height:1.6;
 }
 .container{max-width:1000px;margin-inline:auto;padding:24px}
 .tight{letter-spacing:-.01em}
 .muted{color:var(--muted)}
 .accent{color:var(--accent)}
 
+/* Header */
 .site-header{position:sticky;top:0;z-index:20;backdrop-filter:saturate(140%) blur(8px);
-  background:linear-gradient(180deg, rgba(11,15,20,.9), rgba(11,15,20,.6)); border-bottom:1px solid var(--line)}
+  background:linear-gradient(180deg, rgba(11,15,20,.9), rgba(11,15,20,.6));
+  border-bottom:1px solid var(--line);}
 .header-inner{display:flex;align-items:center;gap:16px;justify-content:space-between}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font-weight:700}
 .brand-mark{fill:var(--accent)}
 .nav a{color:var(--muted);text-decoration:none;margin-left:20px}
 .nav a:hover{color:var(--text)}
 
+/* Panels & buttons */
 .hero{padding-block:48px 24px}
-.panel{background:linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin:12px 0}
-.grid-3{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.panel{background:linear-gradient(180deg, var(--panel), var(--panel-2));
+  border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin:12px 0}
 label{display:grid; gap:6px; font-size:.95rem; color:var(--muted)}
 select{padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#0a0f14; color:var(--text)}
-
-.btn{display:inline-block;padding:10px 16px;border-radius:10px;background:var(--btn);color:var(--text);text-decoration:none;border:1px solid var(--line);box-shadow:var(--shadow);cursor:pointer}
+.btn{display:inline-block;padding:10px 16px;border-radius:10px;background:var(--btn);color:var(--text);
+  text-decoration:none;border:1px solid var(--line);box-shadow:var(--shadow);cursor:pointer}
 .btn:hover{background:var(--btn-hover)}
 
+/* Table wrappers */
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0f14}
-table{width:100%;border-collapse:collapse;min-width:720px;table-layout:auto}
-th, td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
-th{position:sticky;top:0;background:#0e131a;text-align:left;font-weight:600}
-td.num{text-align:right}
 
-/* Keep rows horizontal and prevent line-break chaos inside cells that have a pill + number */
-.cell-split{
-  display:flex;
-  flex-direction:row;
-  align-items:center;
-  justify-content:space-between; /* pill left, number right */
-  gap:8px;
+/* Tables: fix Safari border glitches with separate borders */
+table{
   width:100%;
-  min-width:200px; /* helps in Safari to avoid wrapping */
+  min-width:720px;
+  border-collapse:separate;   /* was collapse; Safari can drop borders */
+  border-spacing:0;
 }
-.cell-split .numval{
-  margin-left:auto;
+th, td{
+  padding:10px 12px;
+  border-bottom:1px solid var(--line);
+  vertical-align:middle;
+  white-space:nowrap;
+}
+tbody tr:last-child td{ border-bottom:none; } /* tidy last row */
+
+/* Sticky header row look */
+th{
+  position:sticky; top:0;
+  background:#0e131a;
+  font-weight:600;
+  z-index:1;
+  color:var(--text);
+}
+
+/* Numeric alignment */
+td.num, th.num { text-align:right; }
+
+/* Right-align specific headers for both tables */
+#valueTable thead th:nth-child(2),
+#valueTable thead th:nth-child(3),
+#valueTable thead th:nth-child(4),
+#valueTable thead th:nth-child(5),
+#valueTable thead th:nth-child(6),
+#omegaTable thead th:nth-child(2),
+#omegaTable thead th:nth-child(3),
+#omegaTable thead th:nth-child(4),
+#omegaTable thead th:nth-child(5){
   text-align:right;
 }
 
-/* Right-align numeric table headers to match numeric cells */
-th.num,
-td.num,
-td.leftpill {
-  text-align: right;
+/* Highlight best rows without breaking borders */
+tr.highlight td{
+  background:rgba(76,194,255,0.08);
+  background-clip:padding-box; /* keep the 1px border visible */
 }
 
-/* Ensure the pill stays left within the cell, number stays right */
-td.leftpill {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.35rem;
+/* “Best” + number layout: pill left, number right */
+.leftpill{
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
-
-/* Any header cell in packs or omega tables: align if numeric */
-table th:nth-child(2),
-table th:nth-child(3),
-table th:nth-child(4),
-table th:nth-child(5),
-table th:nth-child(6) {
-  text-align: right;
+.leftpill .numv{
+  margin-left:auto;         /* push number to the right edge */
+  display:inline-block;
+  text-align:right;
+  min-width:6ch;            /* keeps columns steady even with short numbers */
 }
 
 /* Pills */
@@ -95,17 +117,13 @@ table th:nth-child(6) {
   border:1px solid var(--line);
   background:#0a0f14;
   font-size:.85rem;
-  line-height:1.2;
+  color:var(--muted);
 }
-.pill.best{border-color:#297aa2}
-.pill.empty{visibility:hidden} /* placeholder to keep column alignment */
+.pill.best{ border-color:#297aa2; color:#cfeeff; }
 
-/* Row highlight for best values */
-tr.highlight td{background:rgba(76,194,255,0.08)}
-
-.code{background:#0a0f14;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto}
+/* Sections & footer */
 .section{margin-block:32px}
 .site-footer{border-top:1px solid var(--line);background:rgba(11,15,20,.6)}
 .site-footer small{color:var(--muted)}
 
-@media (max-width:520px){.nav{display:none}}
+@media (max-width:520px){ .nav{display:none} }
