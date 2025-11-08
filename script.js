@@ -1,68 +1,37 @@
-// EVE Value Calculator — ESI (GitHub Pages friendly)
+// EVE Value Calculator — ESI version (no Fuzzwork)
 // - Cash packs: packs.json (you maintain)
-// - PLEX→ISK from ESI sell orders in a chosen region
-// - Supports Min / Median / Avg from the fetched order prices
+// - PLEX→ISK: ESI market sell orders for region + type_id=44992 (PLEX)
+// - Aggregations: min / avg / median from all sell orders in the region
+// - Works on GitHub Pages (static hosting)
 
-// ---------- DOM ----------
-const TABLE = document.getElementById('valueTable');
-const TBODY = document.getElementById('tableBody');
+const TABLE   = document.getElementById('valueTable');
+const TBODY   = document.getElementById('tableBody');
 const PREVIEW = document.getElementById('packsPreview');
-const YEAR = document.getElementById('year');
-const LAST = document.getElementById('lastUpdate');
-
-const REGION = document.getElementById('region');       // select with numeric region id
-const SOURCE = document.getElementById('plexSource');   // select: 'min' | 'median' | 'avg'
-const REFRESH_BTN = document.getElementById('refresh');
+const YEAR    = document.getElementById('year');
+const LAST    = document.getElementById('lastUpdate');
+const REGION  = document.getElementById('region');
+const SOURCE  = document.getElementById('plexSource');
 
 if (YEAR) YEAR.textContent = new Date().getFullYear();
 
-// ---------- Config ----------
-const ESI_BASE = 'https://esi.evetech.net/latest';
-const PLEX_TYPE = 44992;
-const MAX_ESI_PAGES = 20; // safety cap
+const ESI_BASE  = 'https://esi.evetech.net/latest';
+const PLEX_TYPE = 44992; // PLEX
 
-// ---------- State ----------
 let packs = [];
-let plexISK = null; // computed ISK per 1 PLEX
+let plexISK = null; // chosen value from {min, avg, median}
 
-// ---------- Utils ----------
+// ---------- UI helpers ----------
 function fmt(n, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
 function showStatus(msg, isError = false) {
-  if (!TBODY) return;
   const row = `<tr><td colspan="6" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
   TBODY.innerHTML = row;
 }
 
-function validateInputs() {
-  const regionVal = REGION && REGION.value ? REGION.value : '10000002'; // default if missing
-  if (!/^\d+$/.test(regionVal)) {
-    throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
-  }
-  const sourceVal = SOURCE && SOURCE.value ? SOURCE.value : 'median';
-  if (!['median', 'avg', 'min'].includes(sourceVal)) {
-    throw new Error(`Unknown plexSource "${sourceVal}"`);
-  }
-  return { regionId: Number(regionVal), source: sourceVal };
-}
-
-function median(arr) {
-  const a = arr.slice().sort((x, y) => x - y);
-  const n = a.length;
-  if (n === 0) return NaN;
-  const mid = Math.floor(n / 2);
-  return n % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
-}
-
-function average(arr) {
-  if (!arr.length) return NaN;
-  return arr.reduce((s, v) => s + v, 0) / arr.length;
-}
-
-// ---------- Data loaders ----------
+// ---------- Data loading ----------
 async function loadPacks() {
   const res = await fetch('packs.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to load packs.json (HTTP ${res.status})`);
@@ -70,66 +39,84 @@ async function loadPacks() {
   if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
 }
 
-/**
- * Fetch all sell order pages for PLEX in a region and compute a price
- * according to the selected source (min/median/avg).
- */
-async function fetchPlexISKFromESI() {
-  const { regionId, source } = validateInputs();
-
-  // First page to read X-Pages
-  const firstURL = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${PLEX_TYPE}&page=1`;
-  const firstRes = await fetch(firstURL, { cache: 'no-store' });
-  if (!firstRes.ok) throw new Error(`ESI HTTP ${firstRes.status} on page 1`);
-
-  const totalPagesHeader = firstRes.headers.get('X-Pages');
-  const totalPages = Math.min(Number(totalPagesHeader) || 1, MAX_ESI_PAGES);
-
-  let prices = [];
-  const firstData = await firstRes.json();
-  prices.push(...(firstData || []).map(o => Number(o.price)).filter(Number.isFinite));
-
-  // Subsequent pages (if any)
-  const fetches = [];
-  for (let p = 2; p <= totalPages; p++) {
-    const url = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${PLEX_TYPE}&page=${p}`;
-    fetches.push(fetch(url, { cache: 'no-store' }).then(async r => {
-      if (!r.ok) throw new Error(`ESI HTTP ${r.status} on page ${p}`);
-      const data = await r.json();
-      return (data || []).map(o => Number(o.price)).filter(Number.isFinite);
-    }));
+// Validate inputs and return numeric region
+function validateInputs() {
+  const regionVal = REGION ? REGION.value : '10000002';
+  if (!/^\d+$/.test(regionVal)) {
+    throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
   }
-  if (fetches.length) {
-    const results = await Promise.all(fetches);
-    results.forEach(arr => prices.push(...arr));
+  const src = SOURCE ? SOURCE.value : 'median';
+  if (!['median', 'avg', 'min'].includes(src)) {
+    throw new Error(`Unknown plexSource "${src}"`);
   }
-
-  // Guard: empty or all zeros
-  prices = prices.filter(v => v > 0);
-  if (prices.length === 0) {
-    throw new Error('ESI returned no positive sell prices for PLEX in this region.');
-  }
-
-  let val;
-  if (source === 'min') {
-    val = Math.min(...prices);
-  } else if (source === 'avg') {
-    val = average(prices);
-  } else {
-    val = median(prices);
-  }
-
-  if (!Number.isFinite(val)) {
-    throw new Error(`Failed to compute ${source} from ESI prices.`);
-  }
-
-  plexISK = val; // ISK per 1 PLEX
-  if (LAST) LAST.textContent = `PLEX sell ${source} via ESI @ ${new Date().toLocaleString()}`;
+  return Number(regionVal);
 }
 
-// ---------- Table render ----------
+// Fetch all sell orders for (region, type_id) with pagination
+async function fetchAllSellOrders(regionId, typeId) {
+  const firstUrl = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${typeId}&page=1`;
+  const firstRes = await fetch(firstUrl, { cache: 'no-store' });
+  if (!firstRes.ok) {
+    throw new Error(`ESI HTTP ${firstRes.status} for page 1`);
+  }
+  const totalPages = Number(firstRes.headers.get('X-Pages') || '1');
+  let orders = await firstRes.json();
+
+  // If more pages, fetch the rest
+  if (totalPages > 1) {
+    const pagePromises = [];
+    for (let p = 2; p <= totalPages; p++) {
+      const url = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${typeId}&page=${p}`;
+      pagePromises.push(fetch(url, { cache: 'no-store' }).then(r => {
+        if (!r.ok) throw new Error(`ESI HTTP ${r.status} for page ${p}`);
+        return r.json();
+      }));
+    }
+    const pages = await Promise.all(pagePromises);
+    for (const arr of pages) orders = orders.concat(arr);
+  }
+  return orders;
+}
+
+// Compute min / avg / median from an array of numbers
+function stats(prices) {
+  if (!prices.length) return { min: null, avg: null, median: null };
+  const sorted = prices.slice().sort((a, b) => a - b);
+  const min = sorted[0];
+  const avg = sorted.reduce((s, v) => s + v, 0) / sorted.length;
+  const mid = Math.floor(sorted.length / 2);
+  const median = (sorted.length % 2 === 0) ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  return { min, avg, median };
+}
+
+// Fetch PLEX ISK price via ESI (aggregated)
+async function fetchPlexISK() {
+  const region = validateInputs(); // throws if bad
+  const orders = await fetchAllSellOrders(region, PLEX_TYPE);
+
+  // Extract prices; filter out zero / invalid prices defensively
+  const prices = orders
+    .map(o => Number(o.price))
+    .filter(p => Number.isFinite(p) && p > 0);
+
+  if (!prices.length) {
+    throw new Error('No valid sell prices returned by ESI (prices array is empty).');
+  }
+
+  const s = stats(prices);
+  const source = SOURCE ? SOURCE.value : 'median';
+  const pick = { min: s.min, avg: s.avg, median: s.median }[source];
+
+  if (typeof pick !== 'number' || !isFinite(pick) || pick <= 0) {
+    throw new Error('Price feed returned zero/invalid values after aggregation.');
+  }
+
+  plexISK = pick; // ISK per 1 PLEX
+  if (LAST) LAST.textContent = `PLEX ${source} from ESI (${orders.length} sell orders) — ${new Date().toLocaleString()}`;
+}
+
+// Compute table rows
 function computeRows() {
-  if (!TBODY) return;
   if (!packs.length) {
     TBODY.innerHTML = '<tr><td colspan="6" class="muted">No packs loaded.</td></tr>';
     return;
@@ -146,6 +133,7 @@ function computeRows() {
     return { ...p, price, perPLEX, cashPerISK };
   });
 
+  // Find best values
   const bestPerPLEX = Math.min(...rows.map(r => r.perPLEX));
   const bestCashPerISK = Math.min(...rows.map(r => r.cashPerISK));
 
@@ -164,12 +152,12 @@ function computeRows() {
   }).join('');
 }
 
-// ---------- Orchestration ----------
+// Master refresh
 async function refresh() {
   showStatus('Loading…');
   try {
-    await loadPacks();
-    await fetchPlexISKFromESI();
+    await loadPacks();     // reads packs.json
+    await fetchPlexISK();  // pulls ESI orders, computes min/avg/median
     computeRows();
   } catch (e) {
     console.error(e);
@@ -177,9 +165,11 @@ async function refresh() {
   }
 }
 
-if (REFRESH_BTN) {
-  REFRESH_BTN.addEventListener('click', refresh);
-}
+// Wire up events
+const refreshBtn = document.getElementById('refresh');
+if (refreshBtn) refreshBtn.addEventListener('click', refresh);
+if (REGION) REGION.addEventListener('change', refresh);
+if (SOURCE) SOURCE.addEventListener('change', refresh);
 
 // Auto-run on load
 refresh();
