@@ -1,0 +1,7 @@
+[
+  { "label": "1 Month",  "months": 1,  "cash_usd": 19.99,  "plex_amount": 500 },
+  { "label": "3 Months", "months": 3,  "cash_usd": 47.98,  "plex_amount": 1500 },
+  { "label": "6 Months", "months": 6,  "cash_usd": 86.95,  "plex_amount": 3000 },
+  { "label": "12 Months","months": 12, "cash_usd": 149.90, "plex_amount": 6000 },
+  { "label": "24 Months","months": 24, "cash_usd": 270.00, "plex_amount": 12000 }
+]
