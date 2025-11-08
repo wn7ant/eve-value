@@ -1,4 +1,4 @@
-// script.js — ESI-only version (no Fuzzwork), handles pagination + median
+// script.js — ESI-only version, handles pagination + median
 // Requires: index.html has elements with IDs: valueTable, tableBody, packsPreview, year, lastUpdate, region, plexSource, refresh
 // packs.json sits next to this file (same folder).
 
