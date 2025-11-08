@@ -28,18 +28,58 @@ async function loadPacks(){
   PREVIEW.textContent = JSON.stringify(packs, null, 2);
 }
 
+// Helper: ESI fallback for average price (global, not region-specific)
+async function fetchEsiAveragePrice(typeId){
+  const url = 'https://esi.evetech.net/latest/markets/prices/';
+  const res = await fetch(url, {cache:'no-store'});
+  if(!res.ok) throw new Error(`ESI prices HTTP ${res.status}`);
+  const arr = await res.json();
+  const rec = arr.find(x => x.type_id === typeId);
+  // ESI returns { adjusted_price, average_price } or undefined
+  return rec && typeof rec.average_price === 'number' ? rec.average_price : null;
+}
+
 async function fetchPlexISK(){
-  const region = REGION.value;
-  const url = `${FUZZWORK}?region=${encodeURIComponent(region)}&types=${PLEX_TYPE}`;
-  const res = await fetch(url, {cache: 'no-store'});
-  const data = await res.json();
-  const sell = data[String(PLEX_TYPE)].sell;
-  const source = SOURCE.value;
-  let val = sell.median;
-  if(source === 'avg') val = sell.avg;
-  if(source === 'min') val = sell.min;
-  plexISK = val; // ISK per 1 PLEX (sell side estimate)
-  LAST.textContent = `PLEX sell ${source} fetched: ${new Date().toLocaleString()}`;
+  const region = validateInputs();               // your existing validator
+  const url = `https://market.fuzzwork.co.uk/aggregates/?region=${region}&types=${PLEX_TYPE}`;
+
+  // Try Fuzzwork first
+  let fwVal = null;
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if(!res.ok) throw new Error(`Fuzzwork HTTP ${res.status}`);
+    const data = await res.json();
+    const plex = data && data[String(PLEX_TYPE)];
+    const sell = plex && plex.sell ? plex.sell : null;
+    if (sell){
+      const map = { median: sell.median, avg: sell.avg, min: sell.min };
+      fwVal = map[SOURCE.value];
+    }
+  } catch (e) {
+    // swallow; we’ll try fallback below
+    console.warn('Fuzzwork error:', e);
+  }
+
+  // Accept Fuzzwork if it's a real number > 0
+  if (typeof fwVal === 'number' && isFinite(fwVal) && fwVal > 0){
+    plexISK = fwVal;
+    LAST.textContent = `PLEX sell ${SOURCE.value} (Fuzzwork, region ${region}) at ${new Date().toLocaleString()}`;
+    return;
+  }
+
+  // Fallback: ESI average price (global)
+  const esiAvg = await fetchEsiAveragePrice(PLEX_TYPE);
+  if (typeof esiAvg === 'number' && isFinite(esiAvg) && esiAvg > 0){
+    plexISK = esiAvg;
+    LAST.textContent = `PLEX average_price (ESI global fallback) at ${new Date().toLocaleString()}`;
+    return;
+  }
+
+  // If still nothing, throw a helpful error
+  throw new Error(
+    `PLEX price unavailable from Fuzzwork (zeros) and ESI fallback. 
+Try again later, or set a manual override for now.`
+  );
 }
 
 function computeRows(){
