@@ -63,6 +63,21 @@ td.num{text-align:right}
   text-align:right;
 }
 
+/* Right-align numeric table headers to match numeric cells */
+th.num,
+td.num,
+td.leftpill {
+  text-align: right;
+}
+
+/* Ensure the pill stays left within the cell, number stays right */
+td.leftpill {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 /* Pills */
 .pill{
   display:inline-block;
