@@ -1,4 +1,4 @@
-// EVE Value Calculator
+// EVE Value Calculator (GitHub Pages friendly, no local server assumptions)
 
 // ---- DOM refs
 const TABLE   = document.getElementById('valueTable');
