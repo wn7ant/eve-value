@@ -71,7 +71,7 @@ tr.highlight td{
   color:#fff;
 }
 
-/* ✅ YOUR CHANGE: Left-justify BEST pill + number together */
+/* Left-justify BEST pill + number together */
 td.num.left-justified {
   text-align:left;
   white-space:nowrap;
