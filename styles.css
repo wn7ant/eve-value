@@ -1,5 +1,4 @@
-/* ---------- EVE Value – final stable cross-browser styles.css ---------- */
-
+/* Minimal pro styling */
 :root{
   --bg:#0b0f14;
   --panel:#10161f;
@@ -14,74 +13,67 @@
   --shadow:0 6px 24px rgba(0,0,0,.35);
 }
 
-*{box-sizing:border-box;}
-html{color-scheme:dark;}
+*{box-sizing:border-box}
+html{color-scheme:dark}
 body{
-  margin:0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+  margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial;
   background: radial-gradient(1200px 600px at 70% -10%, #0e1620 0%, #0b0f14 60%) no-repeat, var(--bg);
-  color:var(--text);
-  line-height:1.6;
+  color:var(--text); line-height:1.6;
 }
+.container{max-width:1000px;margin-inline:auto;padding:24px}
+.tight{letter-spacing:-.01em}
+.muted{color:var(--muted)}
+.accent{color:var(--accent)}
 
-.container{max-width:1000px;margin:auto;padding:24px;}
-.muted{color:var(--muted);}
+.site-header{position:sticky;top:0;z-index:20;backdrop-filter:saturate(140%) blur(8px);
+  background:linear-gradient(180deg, rgba(11,15,20,.9), rgba(11,15,20,.6)); border-bottom:1px solid var(--line)}
+.header-inner{display:flex;align-items:center;gap:16px;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font-weight:700}
+.brand-mark{fill:var(--accent)}
+.nav a{color:var(--muted);text-decoration:none;margin-left:20px}
+.nav a:hover{color:var(--text)}
 
-/* Table structure */
-.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0f14;}
-table{width:100%;border-collapse:collapse;min-width:720px;}
-th,td{padding:10px 12px;border-bottom:1px solid var(--line);}
-th{
-  background:#0e131a;
-  position:sticky;
-  top:0;
-  font-weight:600;
-  text-align:left;
+.hero{padding-block:48px 24px}
+.panel{background:linear-gradient(180deg, var(--panel), var(--panel-2)); border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin:12px 0}
+.grid-3{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+label{display:grid; gap:6px; font-size:.95rem; color:var(--muted)}
+select{padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#0a0f14; color:var(--text)}
+
+.btn{display:inline-block;padding:10px 16px;border-radius:10px;background:var(--btn);color:var(--text);text-decoration:none;border:1px solid var(--line);box-shadow:var(--shadow);cursor:pointer}
+.btn:hover{background:var(--btn-hover)}
+
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0f14}
+table{width:100%;border-collapse:collapse;min-width:720px}
+th, td{padding:10px 12px;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:#0e131a;text-align:left;font-weight:600}
+td.num{text-align:right}
+
+/* === Pill + value layout (Safari/Edge friendly) === */
+td.num-with-pill{
+  display:flex;              /* horizontal layout */
+  align-items:center;        /* keep on one line */
+  gap:8px;
+  min-width:0;               /* prevent weird wrapping in Safari */
 }
-
-/* Row highlight when best value present */
-tr.highlight td{
-  background:rgba(76,194,255,0.08);
+td.num-with-pill .pill{
+  flex:0 0 auto;             /* stay left, don’t stretch */
+  order:0;                   /* ensure it’s before the number */
+  margin-right:8px;
 }
-
-/* -------- ✅ FINAL PILL + NUMBER LAYOUT (Safari/Edge safe) -------- */
-td.num{
-  display:flex;                /* horizontal layout inside the cell */
-  align-items:center;
-  justify-content:flex-end;    /* number on the right */
-  gap:6px;
-  white-space:nowrap;
-}
-
-td.num .pill{
-  margin-right:auto;           /* pushes the number to the right */
-  flex-shrink:0;
-}
-
-td.num .value{
+td.num-with-pill .value{
+  margin-left:auto;          /* push number to the far right */
   text-align:right;
-  flex-shrink:0;
+  white-space:nowrap;        /* keep number inline */
 }
 
-/* Pill styling */
-.pill{
-  display:inline-block;
-  padding:3px 8px;
-  border-radius:999px;
-  border:1px solid var(--line);
-  background:#0a0f14;
-  font-size:.82rem;
-  color:var(--muted);
-}
-.pill.best{
-  border-color:#3aa9ff;
-  color:#cfefff;
-}
-.pill.sale{
-  border-color:#ffcf2f;
-  color:#fff;
-}
+/* Pills & highlights */
+.pill{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:#0a0f14}
+.pill.best{border-color:#297aa2}
+tr.highlight td{background:rgba(76,194,255,0.08)}
 
-/* Footer */
-.site-footer{border-top:1px solid var(--line);}
-.site-footer small{color:var(--muted);}
+.code{background:#0a0f14;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto}
+.section{margin-block:32px}
+.site-footer{border-top:1px solid var(--line);background:rgba(11,15,20,.6)}
+.site-footer small{color:var(--muted)}
+
+@media (max-width:520px){.nav{display:none}}
