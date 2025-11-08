@@ -107,7 +107,9 @@ function renderPacks() {
 
     // pill on LEFT of the number; number remains right-aligned via CSS (.num .numv)
     const perPLEXCell    = `${isBestA ? '<span class="pill best">Best</span>' : ''}<span class="numv">$${fmt(r.perPLEX, 4)}</span>`;
-    const cashPerISKCell = `${isBestB ? '<span class="pill best">Best</span>' : ''}<span class="numv">$${fmt(r.cashPerISK, 9)}</span>`;
+    // Convert $/ISK → $/Billion ISK (display only)
+    const cashPerBillion = r.cashPerISK * 1_000_000_000;
+    const cashPerISKCell = `${isBestB ? '<span class="pill best">Best</span>' : ''}<span class="numv">$${fmt(cashPerBillion, 2)} / 1B</span>`;
     const rowClass = (isBestA || isBestB) ? ' class="highlight"' : '';
 
     return `<tr${rowClass}>
