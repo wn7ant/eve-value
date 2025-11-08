@@ -135,6 +135,53 @@ window.setManualPLEX = function(iskPerPLEX) {
   computeRows();
 };
 
+// ======================= Omega Table =======================
+
+const OMEGA_BODY = document.getElementById('omegaBody');
+let omegaPlans = [];
+
+async function loadOmegaPlans() {
+  const res = await fetch('omega.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`omega.json HTTP ${res.status}`);
+  omegaPlans = await res.json();
+}
+
+function computeOmega() {
+  if (!omegaPlans.length) {
+    OMEGA_BODY.innerHTML = '<tr><td colspan="4" class="muted">No Omega data.</td></tr>';
+    return;
+  }
+  if (!plexISK) {
+    OMEGA_BODY.innerHTML = '<tr><td colspan="4" class="muted">Waiting for PLEX price…</td></tr>';
+    return;
+  }
+
+  const rows = omegaPlans.map(o => {
+    const plexValueUSD = o.plex_cost * (packs[0].price_usd / packs[0].plex_amount); // uses live pack $/PLEX ratio
+    const costViaPLEX = o.plex_cost * plexISK ? o.plex_cost * (1 / plexISK) : Infinity; // ISK conversion if needed
+    const cashVsPlexUSD = o.plex_cost * (packs[0].price_usd / packs[0].plex_amount);
+    return { ...o, cashVsPlexUSD };
+  });
+
+  // Pick exactly one best row: lowest costViaPLEX
+  const bestIdx = rows.reduce((b, r, i) =>
+    (rows[i].cashVsPlexUSD < rows[b].cashVsPlexUSD ? i : b), 0);
+
+  OMEGA_BODY.innerHTML = rows.map((r, i) => {
+    const isBest = (i === bestIdx);
+    return `
+      <tr${isBest ? ' class="highlight"' : ''}>
+        <td>${r.label}</td>
+        <td class="num">$${fmt(r.cash_usd, 2)}</td>
+        <td class="num">${fmt(r.plex_cost, 0)} PLEX</td>
+        <td class="num">
+          ${isBest ? '<span class="pill best">Best</span>' : ''}
+          $${fmt(r.cashVsPlexUSD, 2)}
+        </td>
+      </tr>`;
+  }).join('');
+}
+
 // -------------------- Refresh Flow --------------------
 async function refresh() {
   try {
