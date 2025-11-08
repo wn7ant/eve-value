@@ -1,34 +1,26 @@
-// EVE Value Calculator — static, GitHub Pages friendly
-// Primary source: CUSTOM JSON orders endpoint that returns sell orders with "price"
-//   -> Paste your working URL into CUSTOM_SOURCE_URL below.
-// Fallback: Adam4Eve market_prices (derived from ESI)
-// Manual override: window.setManualPLEX(iskPerPLEX)
+// EVE Value Calculator — static, GitHub Pages friendly (ESI-based)
+// Data sources:
+// - Cash packs: packs.json (you maintain)
+// - ISK per PLEX: ESI region orders (The Forge = 10000002), type_id=44992, lowest sell across all pages
 
 // -------------------- DOM --------------------
 const TBODY   = document.getElementById('tableBody');
 const YEAR    = document.getElementById('year');
 const LAST    = document.getElementById('lastUpdate');
-const REGION  = document.getElementById('region');      // UI only; not required by custom source
-const SOURCE  = document.getElementById('plexSource');   // 'median' | 'avg' | 'min' (used as aggregation hint)
+const REGION  = document.getElementById('region');      // select; default 10000002 (The Forge)
+const SOURCE  = document.getElementById('plexSource');   // kept for UI continuity; not used in ESI calc
 const PREVIEW = document.getElementById('packsPreview');
 
 YEAR && (YEAR.textContent = new Date().getFullYear());
 
-// -------------------- Config --------------------
-// 1) PASTE YOUR WORKING ORDERS URL HERE (must return a JSON array of objects with a "price" field)
-const CUSTOM_SOURCE_URL = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
-
-// How to aggregate sell prices from the custom orders array.
-// Options: 'median' | 'avg' | 'min' (lowest)
-const CUSTOM_AGGREGATION = 'median';
-
-// Adam4Eve fallback (no auth, normal browser UA)
+// -------------------- Constants --------------------
 const TYPE_PLEX = 44992;
-const A4E_BASE  = 'https://api.adam4eve.eu/v1';
+const DEFAULT_REGION = 10000002; // The Forge (Jita)
+const ESI_BASE = 'https://esi.evetech.net/latest';
 
 // -------------------- State --------------------
 let packs = [];
-let plexISK = null; // ISK per PLEX
+let plexISK = null; // number, ISK per 1 PLEX (lowest region sell)
 
 // -------------------- Helpers --------------------
 function fmt(n, digits = 2) {
@@ -40,32 +32,15 @@ function showStatus(msg, isError = false) {
   TBODY.innerHTML = `<tr><td colspan="6" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
 }
 
-function median(nums) {
-  if (!nums.length) return NaN;
-  const v = nums.slice().sort((a,b)=>a-b);
-  const mid = Math.floor(v.length/2);
-  return v.length % 2 ? v[mid] : (v[mid-1]+v[mid])/2;
-}
-
-function average(nums) {
-  if (!nums.length) return NaN;
-  return nums.reduce((a,b)=>a+b,0)/nums.length;
-}
-
-function pickAggregation(prices, mode) {
-  if (!prices.length) return NaN;
-  switch (mode) {
-    case 'min':   return Math.min(...prices);
-    case 'avg':   return average(prices);
-    case 'median':
-    default:      return median(prices);
+function validateInputs() {
+  const regionVal = (REGION && REGION.value) ? REGION.value : String(DEFAULT_REGION);
+  if (!/^\d+$/.test(regionVal)) {
+    throw new Error(`Region must be numeric (got "${regionVal}")`);
   }
-}
-
-function uiAgg() {
-  // Use UI selector if present; else use CUSTOM_AGGREGATION default
-  const v = SOURCE && ['median','avg','min'].includes(SOURCE.value) ? SOURCE.value : CUSTOM_AGGREGATION;
-  return v;
+  if (SOURCE && !['median', 'avg', 'min'].includes(SOURCE.value)) {
+    throw new Error(`Unknown plexSource "${SOURCE.value}"`);
+  }
+  return Number(regionVal);
 }
 
 // -------------------- Data Loads --------------------
@@ -76,55 +51,50 @@ async function loadPacks() {
   if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
 }
 
-// Parse a generic orders array (objects with a numeric "price" field).
-function parseOrdersArray(arr) {
-  // Filter only valid numeric prices and positive volumes, if present
-  const sellPrices = arr
-    .filter(o => o && typeof o.price !== 'undefined' && isFinite(Number(o.price)))
-    .map(o => Number(o.price))
-    .filter(p => p > 0);
+// Fetch all pages of region sell orders for PLEX and return the lowest sell price.
+async function fetchPlexFromESI(regionId) {
+  // First request: get X-Pages
+  const firstURL = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${TYPE_PLEX}&page=1`;
+  const firstRes = await fetch(firstURL, { cache: 'no-store', mode: 'cors', headers: { 'Accept': 'application/json' } });
+  if (!firstRes.ok) throw new Error(`ESI HTTP ${firstRes.status} on page 1`);
+  const pages = Number(firstRes.headers.get('X-Pages')) || 1;
 
-  if (!sellPrices.length) {
-    throw new Error('No valid sell prices returned by custom source (prices array is empty).');
+  let prices = [];
+  const page1Data = await firstRes.json();
+  if (Array.isArray(page1Data)) {
+    for (const o of page1Data) if (!o.is_buy_order && o.price > 0) prices.push(Number(o.price));
   }
 
-  // Aggregate
-  const chosen = pickAggregation(sellPrices, uiAgg());
-  if (!isFinite(chosen) || chosen <= 0) {
-    throw new Error('Custom source aggregation produced an invalid value.');
+  // Fetch remaining pages (cap to a sane max to avoid abuse)
+  const maxPages = Math.min(pages, 10);
+  const fetches = [];
+  for (let p = 2; p <= maxPages; p++) {
+    const url = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${TYPE_PLEX}&page=${p}`;
+    fetches.push(fetch(url, { cache: 'no-store', mode: 'cors', headers: { 'Accept': 'application/json' } })
+      .then(r => {
+        if (!r.ok) throw new Error(`ESI HTTP ${r.status} on page ${p}`);
+        return r.json();
+      })
+      .then(arr => {
+        if (Array.isArray(arr)) {
+          for (const o of arr) if (!o.is_buy_order && o.price > 0) prices.push(Number(o.price));
+        }
+      })
+    );
   }
-  return chosen;
-}
+  if (fetches.length) {
+    await Promise.all(fetches);
+  }
 
-// Primary: fetch from your custom JSON orders endpoint
-async function fetchPLEXfromCustom() {
-  if (!CUSTOM_SOURCE_URL || CUSTOM_SOURCE_URL.startsWith('<<')) {
-    throw new Error('CUSTOM_SOURCE_URL is not set. Paste your working URL into script.js.');
+  // Finalize
+  prices = prices.filter(n => Number.isFinite(n) && n > 0);
+  if (!prices.length) {
+    throw new Error('No valid sell prices returned by ESI (prices array is empty).');
   }
-  const res = await fetch(CUSTOM_SOURCE_URL, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Custom source HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data)) {
-    throw new Error('Custom source did not return a JSON array.');
-  }
-  const price = parseOrdersArray(data);
-  plexISK = price;
-  LAST && (LAST.textContent = `PLEX via Custom Source (${uiAgg()}): ${new Date().toLocaleString()}`);
-}
-
-// Fallback: Adam4Eve lowest sell
-async function fetchPLEXfromA4E(regionId) {
-  // regionId not strictly required for A4E as we can pass locationID
-  const url = `${A4E_BASE}/market_prices?locationID=${encodeURIComponent(regionId || '10000002')}&typeID=${TYPE_PLEX}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Adam4Eve HTTP ${res.status}`);
-  const data = await res.json();
-  if (!Array.isArray(data) || !data.length) throw new Error('Adam4Eve returned empty array.');
-  const row = data.find(d => Number(d.type_id) === TYPE_PLEX) || data[0];
-  const sell = Number(row.sell_price);
-  if (!isFinite(sell) || sell <= 0) throw new Error('Adam4Eve sell_price is missing or zero.');
-  plexISK = sell;
-  LAST && (LAST.textContent = `PLEX via Adam4Eve (lowest sell): ${new Date().toLocaleString()}`);
+  const lowest = Math.min(...prices);
+  plexISK = lowest;
+  const srcLabel = SOURCE ? SOURCE.value : 'lowest-sell';
+  LAST && (LAST.textContent = `PLEX lowest sell fetched ${new Date().toLocaleString()} via ESI; UI source=${srcLabel}`);
 }
 
 // -------------------- Compute/Render --------------------
@@ -145,38 +115,24 @@ function computeRows() {
   TBODY.innerHTML = rows.map(r => {
     const isBestA = Math.abs(r.perPLEX - bestPerPLEX) < 1e-12;
     const isBestB = Math.abs(r.cashPerISK - bestCashPerISK) < 1e-12;
-    const bestClass = (isBestA || isBestB) ? ' class="highlight"' : '';
-    return `<tr${bestClass}>
+
+    // “Best” pill placed to the LEFT of the number, left-justified in the cell
+    const bestTagA = isBestA ? '<span class="pill best">Best</span> ' : '';
+    const bestTagB = isBestB ? '<span class="pill best">Best</span> ' : '';
+
+    return `<tr>
       <td>${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
       <td class="num">$${fmt(r.price, 2)}</td>
       <td class="num">${fmt(r.plex_amount, 0)}</td>
-      <td class="num left-tag">
-  ${isBestA ? '<span class="pill best">Best</span> ' : ''}
-  $${fmt(r.perPLEX, 4)}
-</td>
-
-<td class="num">${fmt(plexISK, 0)}</td>
-
-<td class="num left-tag">
-  ${isBestB ? '<span class="pill best">Best</span> ' : ''}
-  $${fmt(r.cashPerISK, 9)}
-</td>
+      <td class="num left">${bestTagA}$${fmt(r.perPLEX, 4)}</td>
+      <td class="num">${fmt(plexISK, 0)}</td>
+      <td class="num left">${bestTagB}$${fmt(r.cashPerISK, 9)}</td>
     </tr>`;
   }).join('');
-/* Align best-value tags to the left inside numeric cells */
-td.left-tag {
-  text-align:left;
-  white-space:nowrap;
 }
 
-/* Make sure the number itself doesn't shift vertically */
-td.left-tag .pill.best {
-  margin-right:6px;
-  vertical-align:middle;
-}
-}
-
-// -------------------- Manual Override --------------------
+// -------------------- Manual Override (optional) --------------------
+// Use from console if fetch has issues: window.setManualPLEX(5400000)
 window.setManualPLEX = function(iskPerPLEX) {
   const v = Number(iskPerPLEX);
   if (!isFinite(v) || v <= 0) {
@@ -192,18 +148,9 @@ window.setManualPLEX = function(iskPerPLEX) {
 async function refresh() {
   try {
     showStatus('Loading…');
+    const regionId = validateInputs();
     await loadPacks();
-
-    // Try your custom source first
-    try {
-      await fetchPLEXfromCustom();
-    } catch (customErr) {
-      console.warn('Custom source failed:', customErr);
-      // Fallback to Adam4Eve
-      const fallbackRegion = (REGION && /^\d+$/.test(REGION.value)) ? REGION.value : '10000002';
-      await fetchPLEXfromA4E(fallbackRegion);
-    }
-
+    await fetchPlexFromESI(regionId);
     computeRows();
   } catch (e) {
     console.error(e);
