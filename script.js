@@ -187,8 +187,10 @@ async function refresh() {
   try {
     showStatus('Loading…');
     await loadPacks();
+    await loadOmegaPlans();
     await fetchPLEXFromESIPrices();
-    computeRows();
+    computeRows();   // packs table
+    computeOmega();  // omega table
   } catch (e) {
     console.error(e);
     showStatus(`Error: ${e.message}`, true);
