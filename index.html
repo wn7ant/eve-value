@@ -13,9 +13,7 @@
 <header class="site-header">
   <div class="container header-inner">
     <a class="brand" href="./">
-      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" class="brand-mark">
-        <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4zM7 8v4c0 3.2 1.8 5.6 5 7.4 3.2-1.8 5-4.2 5-7.4V8l-5-2-5 2z"/>
-      </svg>
+      <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" class="brand-mark"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4zM7 8v4c0 3.2 1.8 5.6 5 7.4 3.2-1.8 5-4.2 5-7.4V8l-5-2-5 2z" /></svg>
       <span class="brand-text">EVE Value</span>
     </a>
     <nav class="nav">
@@ -27,9 +25,14 @@
 
 <main class="container">
   <section id="calculator" class="hero">
-    <h2 class="tight">
-      PLEX / &#x01B5;
-      <small class="muted" id="plexMeta" style="font-weight:400;margin-left:.5rem"></small>
+
+    <!-- NEW banner: PLEX / Ƶ RATE + timestamp -->
+    <h2 class="plexrate">
+      <span class="plex-word">PLEX</span>
+      <span class="slash">/</span>
+      <span class="isk-word">Ƶ</span>
+      <span id="plexRate" class="rate">—</span>
+      <small id="asOf" class="asof">as of —</small>
     </h2>
 
     <div class="panel">
@@ -54,8 +57,7 @@
         </label>
       </div>
       <button class="btn" id="refresh">Refresh Prices</button>
-      <!-- kept for debug if you want; script now writes to #plexMeta -->
-      <small class="muted" id="lastUpdate" style="display:none"></small>
+      <!-- removed lastUpdate line; banner above shows it -->
     </div>
 
     <!-- Packs table -->
@@ -63,7 +65,7 @@
       <table id="valueTable">
         <thead>
           <tr>
-            <th class="th-left">Quantity</th>
+            <th class="left">Quantity</th>
             <th class="num">Cash Price</th>
             <th class="num">$ / PLEX</th>
             <th class="num">$ / Billion ISK</th>
@@ -75,28 +77,26 @@
       </table>
     </div>
 
-    <!-- Omega comparison table -->
-    <h2 style="margin-top:28px">Omega: Cash vs PLEX (best $/PLEX above)</h2>
+    <!-- Omega comparison (unchanged structure) -->
+    <h2 style="margin-top:28px">Omega: Cash vs PLEX (using best $/PLEX above)</h2>
     <div class="table-wrap">
       <table id="omegaTable">
         <thead>
           <tr>
-            <th class="th-left">Duration</th>
+            <th class="left">Duration</th>
             <th class="num">Cash Price</th>
             <th class="num">PLEX Needed</th>
             <th class="num">Cost via PLEX</th>
-            <th class="num">$/mo (Cash)</th>
-            <th class="num">$/mo (PLEX)</th>
           </tr>
         </thead>
         <tbody id="omegaBody">
-          <tr><td colspan="6" class="muted">Loading omega plans…</td></tr>
+          <tr><td colspan="4" class="muted">Loading omega plans…</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="legend muted">
-      <span class="pill best">Best</span> = lowest cost-per-unit in its table
+      <span class="pill best">Best</span> = lowest cost-per-unit in its column
     </div>
   </section>
 
