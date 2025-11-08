@@ -1,54 +1,54 @@
 // EVE Value Calculator — ESI-only, GitHub Pages friendly
 // Data sources:
 // - Cash packs: packs.json (you maintain)
-// - Omega plans: omega.json (you maintain)
 // - ISK per PLEX: ESI prices endpoint (type_id=44992), uses average_price then adjusted_price
+//
+// Packs table: unchanged (Quantity | Cash Price | $/PLEX | $/Billion ISK)
+// Omega table: now 5 columns -> Duration | $ | PLEX | $/month | PLEX exchange
 
 // -------------------- DOM --------------------
-const VALUE_TBL = document.getElementById('valueTable');
-const TBODY     = document.getElementById('tableBody');
-const OMEGA_TBL = document.getElementById('omegaTable');
-const OMEGA_BODY= document.getElementById('omegaBody');
-const YEAR      = document.getElementById('year');
-const LAST      = document.getElementById('lastUpdate');   // we will clear this
-const REFRESH   = document.getElementById('refresh');
+const TBODY   = document.getElementById('tableBody');
+const YEAR    = document.getElementById('year');
+const LAST    = document.getElementById('lastUpdate');
+
+const OMEGA_THEAD = document.querySelector('#omegaTable thead');
+const OMEGA_BODY  = document.getElementById('omegaBody');
 
 YEAR && (YEAR.textContent = new Date().getFullYear());
 
 // -------------------- Config --------------------
 const ESI_PRICES_URL = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
-const TYPE_PLEX      = 44992;
-
-// Inline color tokens (works even if CSS lacks helpers)
-const COLOR_DOLLAR = '#8BE28B';    // green
-const COLOR_PLEX   = '#F5C84C';    // EVE-like yellow
-const COLOR_ISK    = '#4CC2FF';    // light blue
+const TYPE_PLEX = 44992;
 
 // -------------------- State --------------------
-let packs = [];        // from packs.json
-let plans = [];        // from omega.json
-let plexISK = null;    // ISK per PLEX (number)
-let bestDollarPerPLEX = null; // min $/PLEX from packs
+let packs = [];
+let plexISK = null;               // ISK per PLEX (from ESI prices)
+let bestDollarPerPLEX = null;     // Best $/PLEX from packs table
+let omegaPlans = [];
 
 // -------------------- Helpers --------------------
 function fmt(n, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
+
 function showStatus(msg, isError = false) {
-  TBODY.innerHTML = `<tr><td colspan="4" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
+  TBODY.innerHTML = `<tr><td colspan="5" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
 }
+
 function indexOfStrictMin(arr) {
-  let bestIdx = 0, bestVal = arr[0];
+  let bestIdx = 0;
+  let bestVal = arr[0];
   for (let i = 1; i < arr.length; i++) {
     const v = arr[i];
     if (v < bestVal - 1e-9) { bestVal = v; bestIdx = i; }
   }
   return bestIdx;
 }
+
 function monthsFromLabel(label) {
-  // e.g., "12 Months" or "1 Month" -> 12 or 1
-  const m = String(label).match(/(\d+)/);
+  // "1 Month", "3 Months", etc. -> 1, 3, ...
+  const m = String(label).match(/^(\d+)/);
   return m ? Number(m[1]) : 1;
 }
 
@@ -58,11 +58,14 @@ async function loadPacks() {
   if (!res.ok) throw new Error(`packs.json HTTP ${res.status}`);
   packs = await res.json();
 }
-async function loadOmega() {
+
+async function loadOmegaPlans() {
   const res = await fetch('omega.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`omega.json HTTP ${res.status}`);
-  plans = await res.json();
+  omegaPlans = await res.json();
 }
+
+// ESI prices: returns an array with objects {type_id, average_price, adjusted_price}
 async function fetchPLEXFromESIPrices() {
   const res = await fetch(ESI_PRICES_URL, { cache: 'no-store' });
   if (!res.ok) throw new Error(`ESI prices HTTP ${res.status}`);
@@ -82,161 +85,103 @@ async function fetchPLEXFromESIPrices() {
   }
 
   plexISK = chosen;
-
-  // Update the big title: "PLEX / Ƶ <value> as of <time>"
-  const h1 = document.querySelector('#calculator h1');
-  if (h1) {
-    const val = fmt(plexISK, 0);
-    const now = new Date().toLocaleString();
-    h1.innerHTML =
-      `<span style="color:${COLOR_PLEX};font-weight:700">PLEX</span> `
-      + `<span style="color:#ffffff;font-weight:700">/</span> `
-      + `<span style="color:${COLOR_ISK};font-weight:700">&#x01B5;</span> `
-      + `<span>${val}</span> `
-      + `<span class="muted">as of ${now}</span>`;
-  }
-  // Clear the old “last update” line
-  if (LAST) LAST.textContent = '';
+  LAST && (LAST.textContent = `PLEX via ESI prices: ${new Date().toLocaleString()}`);
 }
 
-// -------------------- Value Table --------------------
-function rewriteValueHeader() {
-  const thead = VALUE_TBL.querySelector('thead');
-  if (!thead) return;
-  thead.innerHTML = `
-    <tr>
-      <th style="text-align:left">Quantity</th>
-      <th class="num">Cash Price</th>
-      <th class="num">$ / PLEX</th>
-      <th class="num">$ / Billion <span style="color:${COLOR_ISK}">&#x01B5;</span></th>
-    </tr>`;
-}
-
-function renderValueTable() {
+// -------------------- Packs table (unchanged structure) --------------------
+function computePacksTable() {
   if (!packs.length) { showStatus('No packs loaded.'); return; }
   if (!plexISK) { showStatus('Waiting for PLEX price…'); return; }
 
-  // Compute rows + $/PLEX + $/Billion ISK
   const rows = packs.map(p => {
     const price = (p.sale_price_usd ?? p.price_usd);
-    const perPLEX = price / p.plex_amount;                           // $/PLEX
-    const dollarPerISK = price / (p.plex_amount * plexISK);          // $/ISK
-    const perBillion = dollarPerISK * 1_000_000_000;                 // $/Billion ISK
-    return { ...p, price, perPLEX, perBillion };
+    const perPLEX = price / p.plex_amount;
+    // $ / Billion ISK -> dollars per (1,000,000,000 ISK)
+    const cashPerBillionISK = price / (p.plex_amount * plexISK) * 1_000_000_000;
+    return { ...p, price, perPLEX, cashPerBillionISK };
   });
 
-  // Best markers
-  const perPLEXArr    = rows.map(r => r.perPLEX);
-  const perBillionArr = rows.map(r => r.perBillion);
-  const bestPerPLEXIdx    = indexOfStrictMin(perPLEXArr);
-  const bestPerBillionIdx = indexOfStrictMin(perBillionArr);
-
-  // Save global best $/PLEX for Omega table "PLEX exchange"
-  bestDollarPerPLEX = rows[bestPerPLEXIdx].perPLEX;
+  // Track the single best $/PLEX for later use in Omega
+  const perPLEXArr = rows.map(r => r.perPLEX);
+  const bestPerPLEXIdx = indexOfStrictMin(perPLEXArr);
+  bestDollarPerPLEX = rows[bestPerPLEXIdx]?.perPLEX ?? null;
 
   TBODY.innerHTML = rows.map((r, i) => {
     const isBestA = (i === bestPerPLEXIdx);
-    const isBestB = (i === bestPerBillionIdx);
-    const rowClass = (isBestA || isBestB) ? ' class="highlight"' : '';
 
-    const cellPerPLEX =
-      `${isBestA ? '<span class="pill best">Best</span>' : ''}`
-      + `<span class="numv">$${fmt(r.perPLEX, 4)}</span>`;
+    // pill left, number right
+    const perPLEXCell = `${isBestA ? '<span class="pill best">Best</span>' : ''}<span class="numv">$${fmt(r.perPLEX, 4)}</span>`;
 
-    const cellPerB =
-      `${isBestB ? '<span class="pill best">Best</span>' : ''}`
-      + `<span class="numv">$${fmt(r.perBillion, 2)}</span>`;
-
-    return `<tr${rowClass}>
-      <td style="text-align:left">${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
+    return `<tr${isBestA ? ' class="highlight"' : ''}>
+      <td class="left">${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
       <td class="num">$${fmt(r.price, 2)}</td>
-      <td class="num leftpill">${cellPerPLEX}</td>
-      <td class="num leftpill">${cellPerB}</td>
+      <td class="num leftpill">${perPLEXCell}</td>
+      <td class="num">$${fmt(r.cashPerBillionISK, 2)} / 1B &#x01B5;</td>
     </tr>`;
   }).join('');
 }
 
-// -------------------- Omega Table (4 columns) --------------------
-function rewriteOmegaHeader() {
-  const thead = OMEGA_TBL.querySelector('thead');
-  if (!thead) return;
-  thead.innerHTML = `
+// -------------------- Omega table (5 columns) --------------------
+function ensureOmegaHeader() {
+  if (!OMEGA_THEAD) return;
+  OMEGA_THEAD.innerHTML = `
     <tr>
-      <th style="text-align:left">Duration</th>
-      <th class="num"><strong style="color:${COLOR_DOLLAR}">$</strong></th>
-      <th class="num"><strong style="color:${COLOR_PLEX}">PLEX</strong></th>
-      <th class="num"><strong>PLEX exchange</strong></th>
+      <th class="left">Duration</th>
+      <th class="num"><span class="is-cash">$</span></th>
+      <th class="num"><span class="is-plex">PLEX</span></th>
+      <th class="num"><span class="is-cash">$</span>/month</th>
+      <th class="num">PLEX exchange</th>
     </tr>`;
 }
 
-function renderOmegaTable() {
-  if (!plans.length) {
-    OMEGA_BODY.innerHTML = '<tr><td colspan="4" class="muted">No Omega data.</td></tr>';
+function computeOmega() {
+  ensureOmegaHeader();
+
+  if (!omegaPlans.length) {
+    OMEGA_BODY.innerHTML = '<tr><td colspan="5" class="muted">No Omega data.</td></tr>';
     return;
   }
-  if (!plexISK || !Number.isFinite(bestDollarPerPLEX)) {
-    OMEGA_BODY.innerHTML = '<tr><td colspan="4" class="muted">Waiting for prices…</td></tr>';
+  if (!bestDollarPerPLEX) {
+    OMEGA_BODY.innerHTML = '<tr><td colspan="5" class="muted">Waiting for best $/PLEX from packs…</td></tr>';
     return;
   }
 
-  // Build rows
-  const rows = plans.map(p => {
-    const months = monthsFromLabel(p.label);
-    const cashUSD = Number(p.cash_usd);
-    const plexNeeded = Number(p.plex_cost);
-
-    const cashPerMonth = cashUSD / months;
-    const plexExchangeTotalUSD = plexNeeded * bestDollarPerPLEX;    // buy PLEX at best $/PLEX
-
-    return {
-      label: p.label,
-      cashUSD,
-      plexNeeded,
-      cashPerMonth,
-      plexExchangeTotalUSD,
-      months
-    };
+  // Build omega rows with new columns
+  const rows = omegaPlans.map(o => {
+    const months = monthsFromLabel(o.label);
+    const cashPerMonth = o.cash_usd / months;                  // $/month
+    const plexExchangeUSD = o.plex_cost * bestDollarPerPLEX;   // cost via PLEX using best $/PLEX
+    return { ...o, months, cashPerMonth, plexExchangeUSD };
   });
 
-  // "Best" row is the one with the lowest monthly cost between cash/month and (plexExchangeTotal/mo)
-  const monthlyCosts = rows.map(r => Math.min(r.cashPerMonth, r.plexExchangeTotalUSD / r.months));
-  const bestIdx = indexOfStrictMin(monthlyCosts);
-
-  OMEGA_BODY.innerHTML = rows.map((r, i) => {
-    const isBest = (i === bestIdx);
-    const rowClass = isBest ? ' class="highlight"' : '';
-
-    const plexExchangeCell =
-      `${isBest ? '<span class="pill best">Best</span>' : ''}`
-      + `<span class="numv">$${fmt(r.plexExchangeTotalUSD, 2)}</span>`;
-
-    return `
-      <tr${rowClass}>
-        <td style="text-align:left">${r.label}</td>
-        <td class="num">$${fmt(r.cashUSD, 2)}</td>
-        <td class="num">${fmt(r.plexNeeded, 0)}</td>
-        <td class="num leftpill">${plexExchangeCell}</td>
-      </tr>`;
-  }).join('');
+  // Render (no extra “PLEX” word next to numbers in the PLEX column)
+  OMEGA_BODY.innerHTML = rows.map(r => `
+    <tr>
+      <td class="left">${r.label}</td>
+      <td class="num">$${fmt(r.cash_usd, 2)}</td>
+      <td class="num"><span class="is-plex">${fmt(r.plex_cost, 0)}</span></td>
+      <td class="num">$${fmt(r.cashPerMonth, 2)}</td>
+      <td class="num">$${fmt(r.plexExchangeUSD, 2)}</td>
+    </tr>
+  `).join('');
 }
 
 // -------------------- Refresh Flow --------------------
 async function refresh() {
   try {
     showStatus('Loading…');
-    rewriteValueHeader();
-    rewriteOmegaHeader();
-    await Promise.all([loadPacks(), loadOmega(), fetchPLEXFromESIPrices()]);
-    renderValueTable();
-    renderOmegaTable();
+    await Promise.all([loadPacks(), loadOmegaPlans()]);
+    await fetchPLEXFromESIPrices();
+    computePacksTable();  // packs table (also sets bestDollarPerPLEX)
+    computeOmega();       // omega table (uses bestDollarPerPLEX)
   } catch (e) {
     console.error(e);
     showStatus(`Error: ${e.message}`, true);
-    if (OMEGA_BODY) OMEGA_BODY.innerHTML = `<tr><td colspan="4">Error: ${e.message}</td></tr>`;
+    if (OMEGA_BODY) OMEGA_BODY.innerHTML = `<tr><td colspan="5" class="muted">Error: ${e.message}</td></tr>`;
   }
 }
 
-REFRESH?.addEventListener('click', refresh);
+document.getElementById('refresh')?.addEventListener('click', refresh);
 
 // Auto-run on load
 refresh();
