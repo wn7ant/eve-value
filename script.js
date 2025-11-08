@@ -1,153 +1,130 @@
-// EVE Value Calculator — ESI version (GitHub Pages safe, no local server needed)
+// EVE Value Calculator (ESI-based)
+// Uses ESI sell orders to estimate ISK/PLEX, then computes $/PLEX and $/ISK.
+// Drop-in for your existing index.html and packs.json
 
-// ----- DOM -----
-const TABLE = document.getElementById('valueTable');
-const TBODY = document.getElementById('tableBody');
+// ------ DOM refs ------
+const TABLE   = document.getElementById('valueTable');
+const TBODY   = document.getElementById('tableBody');
 const PREVIEW = document.getElementById('packsPreview');
-const YEAR = document.getElementById('year');
-const LAST = document.getElementById('lastUpdate');
-const REGION = document.getElementById('region');      // <select>, defaults to 10000002 in index.html
-const SOURCE = document.getElementById('plexSource');  // median | avg | min (we still show this to user)
+const YEAR    = document.getElementById('year');
+const LAST    = document.getElementById('lastUpdate');
+const REGION  = document.getElementById('region');
+const SOURCE  = document.getElementById('plexSource');
 
-YEAR && (YEAR.textContent = new Date().getFullYear());
+if (YEAR) YEAR.textContent = new Date().getFullYear();
 
-// ----- Constants -----
-const ESI_BASE = 'https://esi.evetech.net/latest';
-const PLEX_TYPE = 44992; // PLEX
-const MAX_PAGES = 20;    // safety cap on pagination
+// ------ Constants ------
+const PLEX_TYPE = 44992; // PLEX type id
+const ESI_ORDERS = 'https://esi.evetech.net/latest/markets'; // /{region_id}/orders/?order_type=sell&type_id=44992
 
+// ------ State ------
 let packs = [];
-let plexISK = null;
+let plexISK = null; // chosen ISK price per 1 PLEX (sell side)
 
-// ----- Utilities -----
-function fmt(n, digits = 2) {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
-  return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
+// ------ Helpers ------
+function fmt(n, digits=2){
+  if(n === null || n === undefined || Number.isNaN(n)) return '—';
+  return Number(n).toLocaleString(undefined, {maximumFractionDigits: digits});
 }
 
-function showStatus(msg, isError = false) {
-  const row = `<tr><td colspan="6" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
+function showStatus(msg, isError=false){
+  const row = `<tr><td colspan="6" class="${isError?'':'muted'}">${msg}</td></tr>`;
   TBODY.innerHTML = row;
 }
 
-function validateInputs() {
-  const regionVal = (REGION && REGION.value) ? REGION.value : '10000002'; // default The Forge
-  if (!/^\d+$/.test(regionVal)) {
-    throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
-  }
-  const src = SOURCE && SOURCE.value ? SOURCE.value : 'median';
-  if (!['median', 'avg', 'min'].includes(src)) {
-    throw new Error(`Unknown plexSource "${src}"`);
-  }
-  return { region: Number(regionVal), source: src };
+function median(values){
+  if(!values.length) return NaN;
+  const arr = values.slice().sort((a,b)=>a-b);
+  const mid = Math.floor(arr.length/2);
+  return arr.length % 2 ? arr[mid] : (arr[mid-1] + arr[mid]) / 2;
 }
 
-// Median helper
-function medianOf(sortedNums) {
-  if (!sortedNums.length) return null;
-  const mid = Math.floor(sortedNums.length / 2);
-  return sortedNums.length % 2
-    ? sortedNums[mid]
-    : (sortedNums[mid - 1] + sortedNums[mid]) / 2;
+function validateInputs(){
+  const regionVal = REGION ? REGION.value : '10000002';
+  if(!/^\d+$/.test(regionVal)) throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
+  const source = SOURCE ? SOURCE.value : 'median';
+  if(!['median','avg','min'].includes(source)) throw new Error(`Unknown plexSource "${source}"`);
+  return { region: Number(regionVal), source };
 }
 
-// ----- Data loaders -----
-async function loadPacks() {
-  const res = await fetch('packs.json', { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Failed to load packs.json (HTTP ${res.status})`);
+// ------ Data loaders ------
+async function loadPacks(){
+  const res = await fetch('packs.json', {cache:'no-store'});
+  if(!res.ok) throw new Error(`packs.json HTTP ${res.status}`);
   packs = await res.json();
   if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
 }
 
-async function fetchESISellPrices(regionId, typeId) {
-  // ESI endpoint:
-  // GET /markets/{region_id}/orders/?order_type=sell&type_id={type_id}&page={n}
-  // Returns array of order objects with "price", "is_buy_order": false
-  let page = 1;
-  const prices = [];
+// Fetch ALL sell-order pages for region/type and return an array of prices
+async function fetchESISellPrices(regionId, typeId){
+  // First request: learn X-Pages
+  const firstURL = `${ESI_ORDERS}/${regionId}/orders/?order_type=sell&type_id=${typeId}&page=1`;
+  const firstRes = await fetch(firstURL, { cache: 'no-store' });
+  if(!firstRes.ok) throw new Error(`ESI HTTP ${firstRes.status} on page 1`);
 
-  while (page <= MAX_PAGES) {
-    const url = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${typeId}&page=${page}`;
-    const res = await fetch(url, { cache: 'no-store' });
+  const xPages = Number(firstRes.headers.get('x-pages')) || 1;
+  const firstData = await firstRes.json();
 
-    if (res.status === 404) {
-      // End of pages or no orders
-      break;
-    }
-    if (!res.ok) {
-      throw new Error(`ESI HTTP ${res.status} on page ${page}`);
-    }
+  // Collect page 1 prices
+  let prices = firstData
+    .map(o => o && o.price)
+    .filter(p => typeof p === 'number' && isFinite(p) && p > 0);
 
-    const arr = await res.json();
-    if (!Array.isArray(arr) || arr.length === 0) {
-      break; // no more data
-    }
+  // If more pages, fetch them (in parallel)
+  const tasks = [];
+  for (let page = 2; page <= xPages; page++){
+    const url = `${ESI_ORDERS}/${regionId}/orders/?order_type=sell&type_id=${typeId}&page=${page}`;
+    tasks.push(fetch(url, { cache: 'no-store' }).then(async res => {
+      if(!res.ok) throw new Error(`ESI HTTP ${res.status} on page ${page}`);
+      const data = await res.json();
+      return data
+        .map(o => o && o.price)
+        .filter(p => typeof p === 'number' && isFinite(p) && p > 0);
+    }));
+  }
 
-    for (const o of arr) {
-      // Defensive checks
-      if (o && o.price && o.is_buy_order === false && isFinite(o.price) && o.price > 0) {
-        prices.push(Number(o.price));
-      }
-    }
-
-    // ESI uses X-Pages header to indicate total pages; obey if present
-    const totalPages = Number(res.headers.get('X-Pages') || '0');
-    if (totalPages && page >= totalPages) break;
-
-    page++;
+  if(tasks.length){
+    const pages = await Promise.all(tasks);
+    for (const arr of pages) prices = prices.concat(arr);
   }
 
   return prices;
 }
 
-async function fetchPlexISK_ESI() {
+async function fetchPlexISK(){
   const { region, source } = validateInputs();
-  // Pull all sell prices and compute a robust statistic
+
+  // Pull all sell prices for PLEX in region
   const prices = await fetchESISellPrices(region, PLEX_TYPE);
 
-  if (!prices.length) {
-    throw new Error('No valid sell prices returned by ESI (prices array is empty).');
+  if(!prices.length) throw new Error('No valid sell prices returned by ESI (prices array is empty).');
+
+  let val;
+  if (source === 'median') val = median(prices);
+  else if (source === 'avg') val = prices.reduce((a,b)=>a+b, 0) / prices.length;
+  else if (source === 'min') val = Math.min(...prices);
+
+  if (typeof val !== 'number' || !isFinite(val) || val <= 0){
+    throw new Error('Price feed returned zero/invalid value from ESI.');
   }
 
-  prices.sort((a, b) => a - b);
-
-  let value;
-  if (source === 'min') {
-    value = prices[0];
-  } else if (source === 'avg') {
-    const sum = prices.reduce((s, v) => s + v, 0);
-    value = sum / prices.length;
-  } else {
-    value = medianOf(prices);
-  }
-
-  if (!isFinite(value) || value <= 0) {
-    throw new Error('Price feed returned non-positive value after processing.');
-  }
-
-  plexISK = value; // ISK per 1 PLEX (sell side estimate)
-  if (LAST) LAST.textContent = `PLEX sell ${source} via ESI fetched: ${new Date().toLocaleString()}`;
+  plexISK = val; // ISK per 1 PLEX (estimated sell side)
+  if (LAST) LAST.textContent = `PLEX sell ${source} (ESI) fetched: ${new Date().toLocaleString()}`;
 }
 
-// ----- Compute & render -----
-function computeRows() {
-  if (!packs.length) {
-    showStatus('No packs loaded.');
-    return;
-  }
-  if (!plexISK) {
-    showStatus('Waiting for PLEX price…');
-    return;
-  }
+// ------ Compute & render ------
+function computeRows(){
+  if(!packs.length){ showStatus('No packs loaded.'); return; }
+  if(!plexISK){ showStatus('Waiting for PLEX price…'); return; }
 
   const rows = packs.map(p => {
-    const price = (p.sale_price_usd ?? p.price_usd);
+    const price = p.sale_price_usd ?? p.price_usd;
     const perPLEX = price / p.plex_amount;
     const cashPerISK = price / (p.plex_amount * plexISK);
-    return { ...p, price, perPLEX, cashPerISK };
+    return {...p, price, perPLEX, cashPerISK};
   });
 
-  const bestPerPLEX = Math.min(...rows.map(r => r.perPLEX));
+  const bestPerPLEX    = Math.min(...rows.map(r => r.perPLEX));
   const bestCashPerISK = Math.min(...rows.map(r => r.cashPerISK));
 
   TBODY.innerHTML = rows.map(r => {
@@ -165,21 +142,25 @@ function computeRows() {
   }).join('');
 }
 
-async function refresh() {
+// ------ Orchestration ------
+async function refresh(){
   showStatus('Loading…');
-  try {
-    await loadPacks();       // read packs.json
-    await fetchPlexISK_ESI(); // fetch PLEX price from ESI
-    computeRows();           // render
-  } catch (e) {
+  try{
+    await loadPacks();
+    await fetchPlexISK();
+    computeRows();
+  }catch(e){
     console.error(e);
     showStatus(`Error: ${e.message}`, true);
   }
 }
 
-// Wire up refresh button if present
+// ------ Events ------
 const refreshBtn = document.getElementById('refresh');
 if (refreshBtn) refreshBtn.addEventListener('click', refresh);
 
-// Auto-run
-refresh();
+if (REGION) REGION.addEventListener('change', refresh);
+if (SOURCE) SOURCE.addEventListener('change', refresh);
+
+// Auto-run on load
+document.addEventListener('DOMContentLoaded', refresh);
