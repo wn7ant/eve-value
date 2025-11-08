@@ -1,23 +1,47 @@
 [
   {
-    "name": "PLEX Pack 1",
+    "name": "100 PLEX",
     "plex_amount": 100,
-    "price_usd": 4.99
+    "price_usd": 5.00
   },
   {
-    "name": "PLEX Pack 2",
+    "name": "200 PLEX",
+    "plex_amount": 200,
+    "price_usd": 10.00
+  },
+  {
+    "name": "500 PLEX",
     "plex_amount": 500,
-    "price_usd": 24.99
+    "price_usd": 25.00
   },
   {
-    "name": "PLEX Pack 3",
-    "plex_amount": 1100,
-    "price_usd": 49.99
+    "name": "1000 PLEX",
+    "plex_amount": 1000,
+    "price_usd": 45.00
   },
   {
-    "name": "PLEX Pack 4 (Sale)",
-    "plex_amount": 2860,
-    "price_usd": 124.99,
-    "sale_price_usd": 99.99
+    "name": "1500 PLEX",
+    "plex_amount": 1500,
+    "price_usd": 65.00
+  },
+  {
+    "name": "3000 PLEX",
+    "plex_amount": 3000,
+    "price_usd": 125.00
+  },
+  {
+    "name": "6000 PLEX",
+    "plex_amount": 6000,
+    "price_usd": 240.00
+  },
+  {
+    "name": "12000 PLEX",
+    "plex_amount": 12000,
+    "price_usd": 420.00
+  },
+  {
+    "name": "20000 PLEX",
+    "plex_amount": 20000,
+    "price_usd": 650.00
   }
 ]
