@@ -1,15 +1,13 @@
-/* EVE-style Dark UI — drop-in replacement */
+/* EVE-style Dark UI — stable + left-justified BEST tags */
 :root{
-  --bg:#0b0e13;          /* near-black slate */
-  --bg-2:#0e131a;        /* header/table top */
-  --panel:#0f141b;       /* card/table body */
-  --line:#1e2a36;        /* subtle borders */
-  --text:#e6edf3;        /* primary text */
-  --muted:#9fb0c0;       /* secondary text */
-  --accent:#3aa9ff;      /* EVE-ish blue */
-  --accent-2:#7cd1ff;    /* lighter blue */
-  --good:#1ec78a;        /* best-value tag */
-  --warn:#ffcf2f;        /* sale badge tone */
+  --bg:#0b0e13;
+  --bg-2:#0e131a;
+  --panel:#0f141b;
+  --line:#1e2a36;
+  --text:#e6edf3;
+  --muted:#9fb0c0;
+  --accent:#3aa9ff;
+  --good:#1ec78a;
   --shadow:0 6px 24px rgba(0,0,0,.35);
   --radius:12px;
 }
@@ -17,91 +15,68 @@
 *{box-sizing:border-box}
 html{color-scheme:dark}
 body{
-  margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+  margin:0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu;
   background:
     radial-gradient(1200px 600px at 70% -10%, #0d1622 0%, #0b0e13 60%) no-repeat,
     var(--bg);
-  color:var(--text); line-height:1.6;
+  color:var(--text);
+  line-height:1.6;
 }
 
-/* Layout */
-.container{max-width:1000px; margin-inline:auto; padding:24px}
-.tight{letter-spacing:-.01em}
+.container{max-width:1000px;margin:auto;padding:24px}
 .muted{color:var(--muted)}
-.accent{color:var(--accent)}
 
-.site-header{
-  position:sticky; top:0; z-index:20;
-  backdrop-filter:saturate(140%) blur(8px);
-  background:linear-gradient(180deg, rgba(11,14,19,.9), rgba(11,14,19,.6));
-  border-bottom:1px solid var(--line)
-}
-.header-inner{display:flex;align-items:center;gap:16px;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);font-weight:700}
-.brand-mark{fill:var(--accent)}
-.nav a{color:var(--muted);text-decoration:none;margin-left:20px}
-.nav a:hover{color:var(--text)}
-
-.hero{padding-block:48px 24px}
-.panel{
-  background:linear-gradient(180deg, var(--panel), #0c1117);
-  border:1px solid var(--line); border-radius:var(--radius); padding:16px;
-  box-shadow:var(--shadow); margin:12px 0
-}
-.grid-3{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-label{display:grid; gap:6px; font-size:.95rem; color:var(--muted)}
-select{
-  padding:10px 12px; border-radius:10px; border:1px solid var(--line);
-  background:#0a0f14; color:var(--text)
-}
-
-.btn{
-  display:inline-block; padding:10px 16px; border-radius:10px;
-  background:#132030; color:var(--text); text-decoration:none;
-  border:1px solid var(--line); box-shadow:var(--shadow); cursor:pointer
-}
-.btn:hover{background:#192a3d}
-
-/* Spreadsheet-style table */
 .table-wrap{
-  overflow:auto; border:1px solid var(--line); border-radius:12px; background:#0a0f14
+  overflow:auto;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#0a0f14;
 }
-table{width:100%; border-collapse:collapse; min-width:760px}
-th, td{padding:12px 14px; border-bottom:1px solid var(--line)}
+
+table{width:100%;border-collapse:collapse;min-width:760px}
+th, td{padding:12px 14px;border-bottom:1px solid var(--line)}
 th{
-  position:sticky; top:0; background:var(--bg-2);
-  text-align:left; font-weight:600; color:#cfe6ff; letter-spacing:.01em
+  background:var(--bg-2);
+  position:sticky;top:0;
+  font-weight:600;
+  color:#cfe6ff;
 }
+
 td.num{text-align:right}
 
-/* Zebra + hover for readability */
-tbody tr:nth-child(odd) td{background:rgba(255,255,255,0.01)}
-tbody tr:hover td{background:rgba(58,169,255,0.06)}
-
-/* Best value highlighting (your JS already adds .highlight) */
+/* Best row highlight */
 tr.highlight td{
   background:linear-gradient(180deg, rgba(30,55,78,.45), rgba(14,24,35,.45));
   box-shadow:inset 0 0 0 1px rgba(58,169,255,.35);
 }
 
-/* Pills */
+/* Pill styling */
 .pill{
-  display:inline-block; padding:4px 8px; border-radius:999px;
-  border:1px solid var(--line); background:#0a0f14; font-size:.8rem; color:var(--muted)
+  display:inline-block;
+  padding:4px 8px;
+  font-size:.8rem;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#0a0f14;
+  color:var(--muted);
+  white-space:nowrap;
 }
-.pill.best{border-color:rgba(30,199,138,.6); color:#caffef}
-.pill.best::before{content:"★ "; color:var(--good)}
-.pill.sale{border-color:rgba(255,207,47,.55); color:#fff}
-
-/* Code block preview */
-.code{
-  background:#0a0f14; border:1px solid var(--line);
-  border-radius:10px; padding:12px; overflow:auto
+.pill.best{
+  border-color:rgba(30,199,138,.6);
+  color:#caffef;
+}
+.pill.sale{
+  border-color:rgba(255,207,47,.55);
+  color:#fff;
 }
 
-.section{margin-block:32px}
-.site-footer{border-top:1px solid var(--line); background:rgba(11,14,19,.6)}
-.site-footer small{color:var(--muted)}
-
-/* Mobile */
-@media (max-width:520px){.nav{display:none}}
+/* ✅ YOUR CHANGE: Left-justify BEST pill + number together */
+td.num.left-justified {
+  text-align:left;
+  white-space:nowrap;
+}
+td.num.left-justified .pill.best {
+  margin-right:6px;
+  vertical-align:middle;
+}
