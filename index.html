@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>EVE Value — PLEX & ISK Calculator</title>
-  <meta name="description" content="Find the lowest cash-per-PLEX and cash-per-ISK using editable pack data and live market prices." />
+  <meta name="description" content="Find the lowest cash-per-PLEX and cash-per-ISK using editable pack data and live prices." />
   <meta name="theme-color" content="#0b0f14" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css" />
@@ -27,7 +27,7 @@
 <main class="container">
   <section id="calculator" class="hero">
     <h1 class="tight">Lowest <span class="accent">cash&nbsp;per&nbsp;PLEX</span> and <span class="accent">cash&nbsp;per&nbsp;ISK</span></h1>
-    <p class="muted">Editable cash packs + live PLEX&rightarrow;ISK from the market. No scraping, no cookies.</p>
+    <p class="muted">Editable cash packs + PLEX price feed. No backend.</p>
 
     <div class="panel">
       <div class="grid-3">
@@ -36,21 +36,17 @@
             <option value="USD" selected>USD</option>
           </select>
         </label>
-        <label>Region (PLEX price)
-  <select id="region">
-    <option value="10000001" selected>Global</option>
-    <option value="10000002" selected>The Forge (Jita)</option>
-    <option value="10000043">Domain (Amarr)</option>
-    <option value="10000032">Sinq Laison (Dodixie)</option>
-    <option value="10000042">Metropolis (Hek)</option>
-    <option value="10000030">Heimatar (Rens)</option>
-  </select>
-</label>
-        <label>PLEX price source
+        <label>Region (UI only)
+          <select id="region">
+            <option value="10000002" selected>The Forge (Jita)</option>
+            <option value="10000001">Derelik</option>
+          </select>
+        </label>
+        <label>Aggregation
           <select id="plexSource">
-            <option value="median" selected>Sell Median (Fuzzwork)</option>
-            <option value="avg">Sell Avg (Fuzzwork)</option>
-            <option value="min">Min Sell (Fuzzwork)</option>
+            <option value="median" selected>Median</option>
+            <option value="avg">Average</option>
+            <option value="min">Minimum</option>
           </select>
         </label>
       </div>
@@ -58,6 +54,7 @@
       <small class="muted" id="lastUpdate"></small>
     </div>
 
+    <!-- Packs table (existing) -->
     <div class="table-wrap">
       <table id="valueTable">
         <thead>
@@ -65,9 +62,9 @@
             <th>Pack</th>
             <th class="num">Cash Price</th>
             <th class="num">PLEX</th>
-            <th class="num">$/PLEX</th>
+            <th class="num">$ / PLEX</th>
             <th class="num">ISK per PLEX</th>
-            <th class="num">$/ISK</th>
+            <th class="num">$ / ISK</th>
           </tr>
         </thead>
         <tbody id="tableBody">
@@ -76,20 +73,40 @@
       </table>
     </div>
 
+    <!-- NEW: Omega comparison table -->
+    <h2 style="margin-top:28px">Omega: Cash vs PLEX (using best $/PLEX above)</h2>
+    <div class="table-wrap">
+      <table id="omegaTable">
+        <thead>
+          <tr>
+            <th>Duration</th>
+            <th class="num">Cash Price</th>
+            <th class="num">PLEX Needed</th>
+            <th class="num">$/PLEX Used</th>
+            <th class="num">Cost via PLEX</th>
+            <th class="num">Save vs Cash</th>
+          </tr>
+        </thead>
+        <tbody id="omegaBody">
+          <tr><td colspan="6" class="muted">Loading omega plans…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="legend muted">
-      <span class="pill best">Best Value</span> = lowest cost-per-unit in its column
+      <span class="pill best">Best</span> = lowest cost-per-unit in its column
     </div>
   </section>
 
   <section id="packs" class="section">
     <h2>Edit your pack data</h2>
-    <p>Open <code>packs.json</code> and change prices or add sales. No backend required.</p>
+    <p>Open <code>packs.json</code> to change prices or add sales.</p>
     <pre class="code"><code id="packsPreview"></code></pre>
   </section>
 
   <section id="about" class="section">
     <h2>About</h2>
-    <p>Lightweight, static calculator. Cash pack prices come from <code>packs.json</code> (you maintain them). PLEX→ISK comes live from Fuzzwork market aggregates (region-selectable). This avoids scraping the EVE Store/NES and keeps the tool stable.</p>
+    <p>Static calculator. Cash pack prices come from <code>packs.json</code>. PLEX price is fetched once from the official ESI “markets/prices” endpoint (you can change this later).</p>
     <p class="muted">EVE Online® and CCP are trademarks of CCP hf. This site is not affiliated with or endorsed by CCP.</p>
   </section>
 </main>
