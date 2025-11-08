@@ -1,36 +1,30 @@
-// EVE Value Calculator — ESI-only, GitHub Pages friendly (no backend)
-//
-// Data sources:
-// - Cash packs: packs.json (you maintain)
-// - ISK per PLEX: ESI orderbook (region sell orders, paginated)
-//   Example endpoint:
-//   https://esi.evetech.net/latest/markets/{region_id}/orders/?order_type=sell&datasource=tranquility&type_id=44992&page=1
+// EVE Value Calculator — ESI-only (GitHub Pages friendly, no backend)
+// Data sources (in order):
+// 1) ESI orders: lowest SELL price for PLEX in selected region (paginated)
+// 2) ESI market history: latest day's average price (fallback)
+// 3) Manual override: window.setManualPLEX(iskPerPLEX)
 //
 // Notes:
-// - Handles pagination via X-Pages header
-// - Picks the *lowest* sell price > 0 (Jita/The Forge by default)
-// - Clear, specific error messages shown in the table area
-// - No python / local server required for GitHub Pages
+// - Region selector uses numeric region IDs (e.g., 10000002 = The Forge/Jita)
+// - type_id for PLEX = 44992
+// - Works when hosted (GitHub Pages/Netlify/etc.). If you open index.html as file://
+//   the browser may block fetches; test via your hosted URL.
 
-// -------------------- DOM --------------------
 const TBODY   = document.getElementById('tableBody');
 const YEAR    = document.getElementById('year');
 const LAST    = document.getElementById('lastUpdate');
-const REGION  = document.getElementById('region');      // select; default 10000002 (The Forge/Jita)
-const SOURCE  = document.getElementById('plexSource');   // kept for UI parity only
+const REGION  = document.getElementById('region');      // select; default 10000002
+const SOURCE  = document.getElementById('plexSource');   // kept for UI label
 const PREVIEW = document.getElementById('packsPreview');
 
-if (YEAR) YEAR.textContent = new Date().getFullYear();
+YEAR && (YEAR.textContent = new Date().getFullYear());
 
-// -------------------- Constants --------------------
 const TYPE_PLEX = 44992;
 const ESI_BASE  = 'https://esi.evetech.net/latest';
 
-// -------------------- State --------------------
 let packs = [];
-let plexISK = null; // number, ISK per 1 PLEX (lowest sell)
+let plexISK = null;
 
-// -------------------- Helpers --------------------
 function fmt(n, digits = 2) {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
   return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
@@ -45,77 +39,81 @@ function validateInputs() {
   if (!/^\d+$/.test(regionVal)) {
     throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
   }
-  // Only used for label; pricing uses ESI lowest sell
   if (SOURCE && !['median', 'avg', 'min'].includes(SOURCE.value)) {
+    // Only affects label; computations use lowest sell from ESI
     throw new Error(`Unknown plexSource "${SOURCE.value}"`);
   }
   return Number(regionVal);
 }
 
-// -------------------- Data Loads --------------------
 async function loadPacks() {
-  // Cache-bust to avoid aggressive proxy caching
-  const res = await fetch('packs.json?cb=' + Date.now(), { cache: 'no-store' });
+  const res = await fetch('packs.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`packs.json HTTP ${res.status}`);
   packs = await res.json();
   if (PREVIEW) PREVIEW.textContent = JSON.stringify(packs, null, 2);
 }
 
-// ESI: pull ALL sell orders for PLEX in a region, page through results,
-// and compute the lowest sell price > 0
-async function fetchPlexFromESI(regionId) {
-  const base =
-    `${ESI_BASE}/markets/${encodeURIComponent(regionId)}/orders/` +
-    `?order_type=sell&datasource=tranquility&type_id=${TYPE_PLEX}`;
-
-  // First request to learn how many pages there are
-  const firstUrl = `${base}&page=1&cb=${Date.now()}`;
-  const firstRes = await fetch(firstUrl, { cache: 'no-store', mode: 'cors' });
-  if (!firstRes.ok) {
-    throw new Error(`ESI HTTP ${firstRes.status} on page 1`);
+// ---------- ESI helpers ----------
+async function fetchJSON(url) {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} for ${url}`);
   }
-
-  const totalPages = Number(firstRes.headers.get('X-Pages')) || 1;
-  let orders = await firstRes.json();
-  if (!Array.isArray(orders)) orders = [];
-
-  // If more pages, fetch them sequentially (keeps it simple/reliable on mobile)
-  for (let p = 2; p <= totalPages; p++) {
-    const url = `${base}&page=${p}&cb=${Date.now()}`;
-    const res = await fetch(url, { cache: 'no-store', mode: 'cors' });
-    if (!res.ok) {
-      // If a page vanishes mid-fetch, just stop; we still have earlier data
-      break;
-    }
-    const pageOrders = await res.json();
-    if (Array.isArray(pageOrders) && pageOrders.length) {
-      orders = orders.concat(pageOrders);
-    }
-  }
-
-  // Extract valid sell prices (> 0)
-  const prices = orders
-    .map(o => Number(o.price))
-    .filter(n => isFinite(n) && n > 0);
-
-  if (!prices.length) {
-    throw new Error('No valid sell prices returned by ESI (prices array is empty).');
-  }
-
-  // Lowest sell
-  const lowest = Math.min(...prices);
-  plexISK = lowest;
-
-  const srcLabel = SOURCE ? SOURCE.value : 'lowest-sell';
-  if (LAST) {
-    LAST.textContent = `PLEX (${TYPE_PLEX}) lowest sell fetched ${new Date().toLocaleString()} via ESI (region ${regionId}); UI source=${srcLabel}`;
-  }
+  return { data: await res.json(), headers: res.headers };
 }
 
-// -------------------- Compute/Render --------------------
+// Pull SELL orders for PLEX in the region, across pages. Return lowest price.
+async function fetchPlexFromESIOrders(regionId) {
+  const base = `${ESI_BASE}/markets/${regionId}/orders/?order_type=sell&type_id=${TYPE_PLEX}`;
+  // First page to discover pagination
+  const { data: page1, headers } = await fetchJSON(`${base}&page=1`);
+  if (!Array.isArray(page1)) throw new Error('ESI orders response malformed.');
+
+  // Collect prices from page 1
+  let prices = page1.filter(o => o && o.price > 0).map(o => Number(o.price));
+
+  // How many pages?
+  const totalPages = Number(headers.get('X-Pages')) || 1;
+
+  // Fetch remaining pages (cap to protect the browser; PLEX usually small)
+  const maxPages = Math.min(totalPages, 10);
+  const promises = [];
+  for (let p = 2; p <= maxPages; p++) {
+    promises.push(fetchJSON(`${base}&page=${p}`).then(({ data }) => {
+      if (Array.isArray(data)) {
+        for (const o of data) {
+          if (o && o.price > 0) prices.push(Number(o.price));
+        }
+      }
+    }));
+  }
+  if (promises.length) await Promise.all(promises);
+
+  // Keep only finite positive numbers
+  prices = prices.filter(v => isFinite(v) && v > 0);
+  if (!prices.length) throw new Error('No valid sell prices returned by ESI (prices array is empty).');
+
+  const lowest = Math.min(...prices);
+  plexISK = lowest;
+  LAST && (LAST.textContent = `PLEX lowest SELL from ESI orders @ region ${regionId} at ${new Date().toLocaleString()}`);
+}
+
+// Fallback: daily history (latest candle’s average) for PLEX in the region
+async function fetchPlexFromESIHistory(regionId) {
+  const url = `${ESI_BASE}/markets/${regionId}/history/?type_id=${TYPE_PLEX}`;
+  const { data } = await fetchJSON(url);
+  if (!Array.isArray(data) || !data.length) throw new Error('ESI history returned empty array.');
+  const last = data[data.length - 1];
+  const avg = Number(last.average);
+  if (!isFinite(avg) || avg <= 0) throw new Error('ESI history average is missing or zero.');
+  plexISK = avg;
+  LAST && (LAST.textContent = `PLEX latest daily average from ESI history @ region ${regionId} at ${new Date().toLocaleString()}`);
+}
+
+// ---------- Compute / Render ----------
 function computeRows() {
   if (!packs.length) { showStatus('No packs loaded.'); return; }
-  if (!plexISK) { showStatus('Waiting for PLEX price…'); return; }
+  if (!plexISK)      { showStatus('Waiting for PLEX price…'); return; }
 
   const rows = packs.map(p => {
     const price = (p.sale_price_usd ?? p.price_usd);
@@ -142,8 +140,7 @@ function computeRows() {
   }).join('');
 }
 
-// -------------------- Manual Override (optional) --------------------
-// In Safari’s console you can do: window.setManualPLEX(5400000)
+// Manual override: in the console run window.setManualPLEX(5400000)
 window.setManualPLEX = function(iskPerPLEX) {
   const v = Number(iskPerPLEX);
   if (!isFinite(v) || v <= 0) {
@@ -151,18 +148,25 @@ window.setManualPLEX = function(iskPerPLEX) {
     return;
   }
   plexISK = v;
-  if (LAST) LAST.textContent = `Manual override: ISK/PLEX = ${fmt(v,0)} at ${new Date().toLocaleString()}`;
+  LAST && (LAST.textContent = `Manual override: ISK/PLEX = ${fmt(v,0)} at ${new Date().toLocaleString()}`);
   computeRows();
 };
 
-// -------------------- Refresh Flow --------------------
+// ---------- Refresh flow ----------
 async function refresh() {
   try {
     showStatus('Loading…');
     const regionId = validateInputs();
-    await loadPacks();             // loads packs.json
-    await fetchPlexFromESI(regionId); // gets lowest sell from ESI
-    computeRows();                 // renders the table
+    await loadPacks();
+    try {
+      // Primary: orderbook lowest sell
+      await fetchPlexFromESIOrders(regionId);
+    } catch (e1) {
+      console.warn('ESI orders failed; falling back to history', e1);
+      // Fallback: daily history avg
+      await fetchPlexFromESIHistory(regionId);
+    }
+    computeRows();
   } catch (e) {
     console.error(e);
     showStatus(`Error: ${e.message}`, true);
@@ -170,6 +174,4 @@ async function refresh() {
 }
 
 document.getElementById('refresh')?.addEventListener('click', refresh);
-
-// Auto-run on load
-refresh();
+refresh(); // auto-run
