@@ -130,4 +130,20 @@ tr.highlight td{
 .site-footer{border-top:1px solid var(--line);background:rgba(11,15,20,.6)}
 .site-footer small{color:var(--muted)}
 
+/* Currency / Asset Styling */
+.is-cash {
+  color: #9bff9b; /* readable Eve-like green */
+  font-weight: 600;
+}
+
+.is-plex {
+  color: #ffd35c; /* warm PLEX gold */
+  font-weight: 600;
+}
+
+.is-isk {
+  color: #71c8ff; /* soft cyan used in Eve UI highlights */
+  font-weight: 600;
+}
+
 @media (max-width:520px){ .nav{display:none} }
