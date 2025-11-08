@@ -78,6 +78,15 @@ td.leftpill {
   gap: 0.35rem;
 }
 
+/* Any header cell in packs or omega tables: align if numeric */
+table th:nth-child(2),
+table th:nth-child(3),
+table th:nth-child(4),
+table th:nth-child(5),
+table th:nth-child(6) {
+  text-align: right;
+}
+
 /* Pills */
 .pill{
   display:inline-block;
@@ -100,12 +109,3 @@ tr.highlight td{background:rgba(76,194,255,0.08)}
 .site-footer small{color:var(--muted)}
 
 @media (max-width:520px){.nav{display:none}}
-
-/* Any header cell in packs or omega tables: align if numeric */
-table th:nth-child(2),
-table th:nth-child(3),
-table th:nth-child(4),
-table th:nth-child(5),
-table th:nth-child(6) {
-  text-align: right;
-}
