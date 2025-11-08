@@ -38,7 +38,7 @@ body{
 .nav a{color:var(--muted);text-decoration:none;margin-left:20px}
 .nav a:hover{color:var(--text)}
 
-/* Banner */
+/* Banner (PLEX / Ƶ …) */
 .plexrate{
   margin:0 0 8px 0;
   font-size:1.25rem;
@@ -90,18 +90,23 @@ th{
 }
 
 /* Alignment */
-td.num, th.num { text-align:right; }
+td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
 th.left, td.left { text-align:left; }
 
 /* Right-align numeric headers for both tables */
 #valueTable thead th:nth-child(2),
 #valueTable thead th:nth-child(3),
 #valueTable thead th:nth-child(4),
+#valueTable thead th:nth-child(5),
 #omegaTable thead th:nth-child(2),
 #omegaTable thead th:nth-child(3),
 #omegaTable thead th:nth-child(4){
   text-align:right;
 }
+
+/* Ensure first header in each table is left aligned */
+#valueTable thead th:first-child,
+#omegaTable thead th:first-child{ text-align:left; }
 
 /* Row highlight */
 tr.highlight td{
@@ -109,7 +114,7 @@ tr.highlight td{
   background-clip:padding-box;
 }
 
-/* Pill to LEFT; numbers stay right */
+/* “Best” pill to LEFT; numbers stay right */
 .leftpill{ display:flex; align-items:center; gap:8px; }
 .leftpill .numv{ margin-left:auto; display:inline-block; text-align:right; min-width:6ch; }
 
@@ -130,20 +135,9 @@ tr.highlight td{
 .site-footer{border-top:1px solid var(--line);background:rgba(11,15,20,.6)}
 .site-footer small{color:var(--muted)}
 
-/* Currency / Asset Styling */
-.is-cash {
-  color: #9bff9b; /* readable Eve-like green */
-  font-weight: 600;
-}
-
-.is-plex {
-  color: #ffd35c; /* warm PLEX gold */
-  font-weight: 600;
-}
-
-.is-isk {
-  color: #71c8ff; /* soft cyan used in Eve UI highlights */
-  font-weight: 600;
-}
+/* Currency / Asset accents (hook these in your HTML/JS) */
+.is-cash { color:#9bff9b; font-weight:600; }   /* $ */
+.is-plex { color:#ffd35c; font-weight:600; }   /* PLEX */
+.is-isk  { color:#71c8ff; font-weight:600; }   /* Ƶ (ISK) */
 
 @media (max-width:520px){ .nav{display:none} }
