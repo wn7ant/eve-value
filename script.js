@@ -38,7 +38,7 @@ function showStatus(msg, isError = false) {
 }
 
 function validateInputs() {
-  const regionVal = REGION && REGION.value ? REGION.value : '10000001'; // default if missing
+  const regionVal = REGION && REGION.value ? REGION.value : '10000002'; // default if missing
   if (!/^\d+$/.test(regionVal)) {
     throw new Error(`Region must be a numeric ID (got "${regionVal}")`);
   }
