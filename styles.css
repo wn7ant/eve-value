@@ -43,32 +43,40 @@ select{padding:10px 12px; border-radius:10px; border:1px solid var(--line); back
 .btn:hover{background:var(--btn-hover)}
 
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0f14}
-table{width:100%;border-collapse:collapse;min-width:720px}
-th, td{padding:10px 12px;border-bottom:1px solid var(--line)}
+table{width:100%;border-collapse:collapse;min-width:720px;table-layout:auto}
+th, td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 th{position:sticky;top:0;background:#0e131a;text-align:left;font-weight:600}
 td.num{text-align:right}
 
-/* === Pill + value layout (Safari/Edge friendly) === */
-td.num-with-pill{
-  display:flex;              /* horizontal layout */
-  align-items:center;        /* keep on one line */
+/* Keep rows horizontal and prevent line-break chaos inside cells that have a pill + number */
+.cell-split{
+  display:flex;
+  flex-direction:row;
+  align-items:center;
+  justify-content:space-between; /* pill left, number right */
   gap:8px;
-  min-width:0;               /* prevent weird wrapping in Safari */
+  width:100%;
+  min-width:200px; /* helps in Safari to avoid wrapping */
 }
-td.num-with-pill .pill{
-  flex:0 0 auto;             /* stay left, don’t stretch */
-  order:0;                   /* ensure it’s before the number */
-  margin-right:8px;
-}
-td.num-with-pill .value{
-  margin-left:auto;          /* push number to the far right */
+.cell-split .numval{
+  margin-left:auto;
   text-align:right;
-  white-space:nowrap;        /* keep number inline */
 }
 
-/* Pills & highlights */
-.pill{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:#0a0f14}
+/* Pills */
+.pill{
+  display:inline-block;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#0a0f14;
+  font-size:.85rem;
+  line-height:1.2;
+}
 .pill.best{border-color:#297aa2}
+.pill.empty{visibility:hidden} /* placeholder to keep column alignment */
+
+/* Row highlight for best values */
 tr.highlight td{background:rgba(76,194,255,0.08)}
 
 .code{background:#0a0f14;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto}
