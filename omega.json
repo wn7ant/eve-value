@@ -1,7 +1,7 @@
 [
-  { "label": "1 Month",  "cash_usd": 20.00, "plex_cost": 500 },
-  { "label": "3 Months", "cash_usd": 48.00, "plex_cost": 1200 },
-  { "label": "6 Months", "cash_usd": 84.00, "plex_cost": 2100 },
-  { "label": "12 Months","cash_usd": 144.00, "plex_cost": 3600 },
-  { "label": "24 Months","cash_usd": 264.00, "plex_cost": 6600 }
+  { "label": "1 Month","months":1,"cash_usd": 20.00,"plex_cost": 500 },
+  { "label": "3 Months","months":3,"cash_usd": 48.00, "plex_cost": 1200 },
+  { "label": "6 Months","months":6,"cash_usd": 84.00, "plex_cost": 2100 },
+  { "label": "12 Months","months":12,"cash_usd": 144.00, "plex_cost": 3600 },
+  { "label": "24 Months","months":24,"cash_usd": 264.00, "plex_cost": 6600 }
 ]
