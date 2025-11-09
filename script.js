@@ -1,43 +1,65 @@
-// EVE Value Calculator — ESI-only, GitHub Pages friendly
-// Data sources:
-// - Cash packs: packs.json (you maintain)
-// - ISK per PLEX: ESI prices endpoint (type_id=44992), uses average_price then adjusted_price
+// EVE Value — ESI-only, GitHub Pages friendly
+// - Packs: packs.json
+// - Omega: omega.json  (with {label, months, cash_usd, plex_cost})
+// - PLEX price: ESI /markets/prices (type_id=44992), average_price -> adjusted_price
 
-// -------------------- DOM --------------------
-const TBODY   = document.getElementById('tableBody');
-const YEAR    = document.getElementById('year');
-const PLEXRATE = document.getElementById('plexRate');
-const ASOF     = document.getElementById('asOf');
+// ---------------- DOM ----------------
+const YEAR      = document.getElementById('year');
+const BTN       = document.getElementById('refresh');
+
+// Banner pieces
+const PLEX_RATE = document.getElementById('plexRate');
+const AS_OF     = document.getElementById('asOf');
+
+// Packs table
+const TBODY     = document.getElementById('tableBody');
+// Omega table
+const OMEGA_TB  = document.getElementById('omegaBody');
 
 YEAR && (YEAR.textContent = new Date().getFullYear());
 
-// -------------------- Config --------------------
+// -------------- Config --------------
 const ESI_PRICES_URL = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
 const TYPE_PLEX = 44992;
 
-// -------------------- State --------------------
-let packs = [];
-let plexISK = null; // ISK per PLEX
+// -------------- State ---------------
+let packs = [];           // from packs.json
+let omegaPlans = [];      // from omega.json
+let plexISK = null;       // ISK per 1 PLEX
+let bestUsdPerPLEX = null; // best $/PLEX across packs
 
-// -------------------- Helpers --------------------
-function fmt(n, digits = 2) {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
-  return Number(n).toLocaleString(undefined, { maximumFractionDigits: digits });
-}
+// -------------- Helpers -------------
+const fmt = (n, d = 2) =>
+  (n === null || n === undefined || Number.isNaN(n)) ? '—'
+  : Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
 
-function showStatus(msg, isError = false) {
+const fmtInt = n => Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+function showPacksStatus(msg, isError = false) {
   TBODY.innerHTML = `<tr><td colspan="4" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
 }
+function showOmegaStatus(msg, isError = false) {
+  OMEGA_TB.innerHTML = `<tr><td colspan="5" class="${isError ? '' : 'muted'}">${msg}</td></tr>`;
+}
 
-// -------------------- Data Loads --------------------
+// -------------- Loads ----------------
 async function loadPacks() {
   const res = await fetch('packs.json', { cache: 'no-store' });
   if (!res.ok) throw new Error(`packs.json HTTP ${res.status}`);
   packs = await res.json();
+  if (!Array.isArray(packs) || packs.length === 0) throw new Error('packs.json is empty.');
 }
 
-// ESI prices: returns an array with objects {type_id, average_price, adjusted_price}
-async function fetchPLEXFromESIPrices() {
+async function loadOmega() {
+  const res = await fetch('omega.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error(`omega.json HTTP ${res.status}`);
+  omegaPlans = await res.json();
+  if (!Array.isArray(omegaPlans) || omegaPlans.length === 0) {
+    throw new Error('omega.json is empty.');
+  }
+}
+
+async function fetchPLEXFromESI() {
   const res = await fetch(ESI_PRICES_URL, { cache: 'no-store' });
   if (!res.ok) throw new Error(`ESI prices HTTP ${res.status}`);
   const data = await res.json();
@@ -48,61 +70,94 @@ async function fetchPLEXFromESIPrices() {
 
   const avg = Number(row.average_price);
   const adj = Number(row.adjusted_price);
-  const chosen = Number.isFinite(avg) && avg > 0 ? avg
+  const chosen = (Number.isFinite(avg) && avg > 0) ? avg
                 : (Number.isFinite(adj) && adj > 0 ? adj : NaN);
-
   if (!Number.isFinite(chosen) || chosen <= 0) {
     throw new Error('PLEX price missing or zero in ESI prices.');
   }
-
   plexISK = chosen;
 
-  // Banner update: PLEX / Ƶ RATE and timestamp
-  if (PLEXRATE) PLEXRATE.textContent = ` ${fmt(plexISK, 0)}`;
-  if (ASOF) ASOF.textContent = `as of ${new Date().toLocaleString()}`;
+  // Banner update
+  if (PLEX_RATE) PLEX_RATE.textContent = fmtInt(plexISK);
+  if (AS_OF) AS_OF.textContent = `as of ${new Date().toLocaleString()}`;
 }
 
-// -------------------- Compute/Render --------------------
-function computeRows() {
-  if (!packs.length) { showStatus('No packs loaded.'); return; }
-  if (!plexISK) { showStatus('Waiting for PLEX price…'); return; }
+// -------------- Packs render ----------
+function renderPacks() {
+  if (!packs.length) { showPacksStatus('No packs loaded.'); return; }
+  if (!plexISK) { showPacksStatus('Waiting for PLEX price…'); return; }
 
+  // Build rows + compute $/PLEX and $/B Ƶ
   const rows = packs.map(p => {
     const price = (p.sale_price_usd ?? p.price_usd);
-    const perPLEX = price / p.plex_amount;
-    // $ per Billion ISK
-    const cashPerBillion = (price / (p.plex_amount * plexISK)) * 1_000_000_000;
-    return { ...p, price, perPLEX, cashPerBillion };
+    const qty   = Number(p.plex_amount || p.plex || 0);
+    const usdPerPLEX = price / qty;
+    // dollars per billion ISK == price / ( (qty * ISKperPLEX)/1e9 )
+    const usdPerBillion = price * 1e9 / (qty * plexISK);
+    return { name: p.name || `${fmtInt(qty)} PLEX`, price, qty, usdPerPLEX, usdPerBillion };
   });
 
-  TBODY.innerHTML = rows.map(r => {
-    return `<tr>
-      <td class="left">${r.name || (r.plex_amount ? `${fmt(r.plex_amount,0)} PLEX` : 'Pack')}</td>
-      <td class="num">${fmt(r.price, 2)}</td>
-      <td class="num">${fmt(r.perPLEX, 4)}</td>
-      <td class="num">${fmt(r.cashPerBillion, 2)}</td>
-    </tr>`;
-  }).join('');
+  // Best $/PLEX (for Omega table use)
+  bestUsdPerPLEX = Math.min(...rows.map(r => r.usdPerPLEX));
+
+  TBODY.innerHTML = rows.map(r => `
+    <tr>
+      <td class="left">${r.name}</td>
+      <td class="num">$${fmt(r.price, 2)}</td>
+      <td class="num">$${fmt(r.usdPerPLEX, 4)}</td>
+      <td class="num">${fmt(r.usdPerBillion, 2)}</td>
+    </tr>
+  `).join('');
 }
 
-// -------------------- Omega (your current JS may already render this) --------------------
-// If you already have omega rendering in another file/version, keep it.
-// This script leaves #omegaTable alone unless you hook it up here.
+// -------------- Omega render ----------
+function renderOmega() {
+  if (!omegaPlans.length) { showOmegaStatus('No omega plans.'); return; }
+  if (!plexISK || !Number.isFinite(bestUsdPerPLEX)) {
+    showOmegaStatus('Waiting for PLEX price…'); return;
+  }
 
-// -------------------- Refresh Flow --------------------
+  // Compute each row:
+  // $/month = cash_usd / months
+  // PLEX exchange (monthly) = (bestUsdPerPLEX * plex_cost) / months
+  const rows = omegaPlans.map(o => {
+    const perMonthCash = o.cash_usd / o.months;
+    const plexMonthly  = (bestUsdPerPLEX * o.plex_cost) / o.months;
+    return {
+      label: o.label,
+      cash_usd: o.cash_usd,
+      plex_cost: o.plex_cost,
+      perMonthCash,
+      plexMonthly
+    };
+  });
+
+  OMEGA_TB.innerHTML = rows.map(r => `
+    <tr>
+      <td class="left">${r.label}</td>
+      <td class="num">${fmt(r.cash_usd, 0)}</td>
+      <td class="num">${fmtInt(r.plex_cost)}</td>
+      <td class="num">${fmt(r.perMonthCash, 0)}</td>
+      <td class="num">${fmt(r.plexMonthly, 2)}</td>
+    </tr>
+  `).join('');
+}
+
+// -------------- Flow ------------------
 async function refresh() {
   try {
-    showStatus('Loading…');
-    await loadPacks();
-    await fetchPLEXFromESIPrices();
-    computeRows();
+    showPacksStatus('Loading packs…');
+    showOmegaStatus('Loading omega plans…');
+
+    await Promise.all([loadPacks(), loadOmega(), fetchPLEXFromESI()]);
+    renderPacks();
+    renderOmega();
   } catch (e) {
     console.error(e);
-    showStatus(`Error: ${e.message}`, true);
+    showPacksStatus(`Error: ${e.message}`, true);
+    showOmegaStatus(`Error: ${e.message}`, true);
   }
 }
 
-document.getElementById('refresh')?.addEventListener('click', refresh);
-
-// Auto-run on load
+BTN && BTN.addEventListener('click', refresh);
 refresh();
