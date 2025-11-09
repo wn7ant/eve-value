@@ -7,7 +7,6 @@
   --muted:#a9b4c0;
   --accent:#4cc2ff;         /* Ƶ / links */
   --plex-yellow:#f2c94c;    /* EVE-like PLEX yellow */
-  --cash-green:#9bff9b;     /* readable Eve-like green */
   --line:#1f2a36;
   --btn:#1a2430;
   --btn-hover:#223142;
@@ -67,7 +66,8 @@ select{padding:10px 12px; border-radius:10px; border:1px solid var(--line); back
 /* Table wrappers */
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0f14}
 
-/* Tables: separate borders (Safari-friendly) */
+/* Tables */
+.table-fixed{table-layout:fixed}
 table{
   width:100%;
   min-width:720px;
@@ -90,48 +90,32 @@ th{
   color:var(--text);
 }
 
-/* Alignment helpers */
+/* Alignment */
 td.num, th.num { text-align:right; }
 th.left, td.left { text-align:left; }
 
-/* Value table: right-align numeric headers */
+/* Right-align numeric headers for both tables */
 #valueTable thead th:nth-child(2),
 #valueTable thead th:nth-child(3),
-#valueTable thead th:nth-child(4){
+#valueTable thead th:nth-child(4),
+#omegaTable  thead th:nth-child(2),
+#omegaTable  thead th:nth-child(3),
+#omegaTable  thead th:nth-child(4),
+#omegaTable  thead th:nth-child(5){
   text-align:right;
 }
 
-/* Omega table layout: even spacing for the 4 right columns + left duration */
-#omegaTable{
-  table-layout:fixed;
-}
-#omegaTable thead th,
-#omegaTable tbody td{ text-align:center; } /* center by default */
-#omegaTable thead th:first-child,
-#omegaTable tbody td:first-child{ text-align:left; } /* Duration left */
-
-#omegaTable thead th:nth-child(1),
-#omegaTable tbody td:nth-child(1){ width:28%; }
-#omegaTable thead th:nth-child(2),
-#omegaTable tbody td:nth-child(2){ width:18%; }
-#omegaTable thead th:nth-child(3),
-#omegaTable tbody td:nth-child(3){ width:18%; }
-#omegaTable thead th:nth-child(4),
-#omegaTable tbody td:nth-child(4){ width:18%; }
-#omegaTable thead th:nth-child(5),
-#omegaTable tbody td:nth-child(5){ width:18%; }
-
-/* Currency-colored headers */
-th.header-cash{ color:var(--cash-green); font-weight:700; }
-th.header-plex{ color:var(--plex-yellow); font-weight:700; }
-th.header-plex-x{ color:var(--plex-yellow); font-weight:700; }
-th.header-month{ color:var(--cash-green); font-weight:700; }
-
-/* Row highlight (kept for packs if used) */
+/* Row highlight (if you still use it elsewhere) */
 tr.highlight td{
   background:rgba(76,194,255,0.08);
   background-clip:padding-box;
 }
+
+/* Currency color helpers */
+.is-cash { color:#9bff9b; font-weight:700; }
+.is-plex { color:#ffd35c; font-weight:700; }
+.is-isk  { color:#71c8ff; font-weight:700; }
+.slash   { color:#ffffff; font-weight:700; }
 
 /* Sections & footer */
 .section{margin-block:32px}
