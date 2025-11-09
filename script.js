@@ -87,24 +87,28 @@ function renderPacks() {
   if (!packs.length) { showPacksStatus('No packs loaded.'); return; }
   if (!plexISK) { showPacksStatus('Waiting for PLEX price…'); return; }
 
-  // Build rows + compute $/PLEX and $/B Ƶ
   const rows = packs.map(p => {
     const price = (p.sale_price_usd ?? p.price_usd);
     const qty   = Number(p.plex_amount || p.plex || 0);
     const usdPerPLEX = price / qty;
-    // dollars per billion ISK == price / ( (qty * ISKperPLEX)/1e9 )
     const usdPerBillion = price * 1e9 / (qty * plexISK);
-    return { name: p.name || `${fmtInt(qty)} PLEX`, price, qty, usdPerPLEX, usdPerBillion };
+
+    return { 
+      name: p.name || `${fmtInt(qty)} PLEX`,
+      price,
+      qty,
+      usdPerPLEX,
+      usdPerBillion
+    };
   });
 
-  // Best $/PLEX (for Omega table use)
   bestUsdPerPLEX = Math.min(...rows.map(r => r.usdPerPLEX));
 
   TBODY.innerHTML = rows.map(r => `
     <tr>
       <td class="left">${r.name}</td>
-      <td class="num">$${fmt(r.price, 2)}</td>
-      <td class="num">$${fmt(r.usdPerPLEX, 4)}</td>
+      <td class="num">${fmt(r.price, 2)}</td>
+      <td class="num">${fmt(r.usdPerPLEX, 4)}</td>
       <td class="num">${fmt(r.usdPerBillion, 2)}</td>
     </tr>
   `).join('');
