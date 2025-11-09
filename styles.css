@@ -5,15 +5,14 @@
   --panel-2:#0f141b;
   --text:#e6edf3;
   --muted:#a9b4c0;
-  --accent:#4cc2ff;         /* Ƶ / links */
+  --accent:#4cc2ff;         /* Ƶ / links / cyan */
   --plex-yellow:#f2c94c;    /* EVE-like PLEX yellow */
+  --cash-green:#9bff9b;     /* readable EVE-ish green */
   --line:#1f2a36;
   --btn:#1a2430;
   --btn-hover:#223142;
   --radius:12px;
   --shadow:0 6px 24px rgba(0,0,0,.35);
-  --cash-green:#9bff9b;
-  --isk-cyan:#71c8ff;
 }
 
 *{box-sizing:border-box}
@@ -40,60 +39,56 @@ body{
 .nav a{color:var(--muted);text-decoration:none;margin-left:20px}
 .nav a:hover{color:var(--text)}
 
-/* Banner */
+/* Banner (PLEX / Ƶ line) */
 .plexrate{
   margin:0 0 8px 0;
   font-size:1.25rem;
   display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap;
 }
-.plexrate .plex-word{ color:var(--plex-yellow); font-weight:700; }
-.plexrate .slash{ color:#ffffff; font-weight:700; }
-.plexrate .isk-word{ color:var(--accent); font-weight:700; }
+.plex-word{ color:var(--plex-yellow); font-weight:700; }
+.slash{ color:#ffffff; font-weight:700; }
+.isk-word{ color:var(--accent); font-weight:700; }
 .plexrate .rate{ font-variant-numeric:tabular-nums; }
 .plexrate .asof{ color:var(--muted); }
 
-/* Panels & button */
+/* ===== Toolbar button (moved above panel, right-aligned) ===== */
+.toolbar{
+  display:flex;
+  justify-content:flex-end;        /* right edge flush with panel */
+  margin-bottom:8px;
+}
+.btn-refresh{
+  padding:10px 16px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:var(--accent);        /* cyan */
+  color:var(--plex-yellow);        /* yellow text */
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:var(--shadow);
+}
+.btn-refresh:hover{
+  filter:brightness(1.05);
+}
+
+/* Panels & selectors */
 .hero{padding-block:28px 24px}
 .panel{
-  position:relative;
   background:linear-gradient(180deg, var(--panel), var(--panel-2));
   border:1px solid var(--line);
   border-radius:var(--radius);
-  padding:12px;               /* ~80% of previous 16px */
+  padding:16px;                   /* base */
   box-shadow:var(--shadow);
   margin:12px 0;
 }
-/* move Refresh button ABOVE the panel, right edge flush with panel */
-#refresh{
-  position:absolute;
-  top:-44px;                  /* lifts it above the panel */
-  right:0;                    /* flush with panel’s right edge */
-  background:var(--accent);   /* cyan */
-  color:var(--plex-yellow);   /* yellow text */
-  border:1px solid #2a6a86;
+.panel--filters{                  /* ~80% of former height */
+  padding-block:12px;             /* reduced vertical padding */
 }
-#refresh:hover{ filter:brightness(1.06); }
-
 label{display:grid; gap:6px; font-size:.95rem; color:var(--muted)}
 select{
-  padding:10px 12px;
-  border-radius:10px;
-  border:1px solid var(--line);
-  background:#0a0f14;
-  color:var(--text)
+  padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+  background:#0a0f14; color:var(--text)
 }
-.btn{
-  display:inline-block;
-  padding:10px 16px;
-  border-radius:10px;
-  background:var(--btn);
-  color:var(--text);
-  text-decoration:none;
-  border:1px solid var(--line);
-  box-shadow:var(--shadow);
-  cursor:pointer
-}
-.btn:hover{background:var(--btn-hover)}
 
 /* Selector row: keep 3 side-by-side */
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -102,19 +97,18 @@ select{
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0f14}
 
 /* Tables */
+.table-fixed{table-layout:fixed}
 table{
   width:100%;
   min-width:720px;
   border-collapse:separate;
   border-spacing:0;
-  table-layout:fixed;         /* lets us balance columns */
 }
 th, td{
   padding:10px 12px;
   border-bottom:1px solid var(--line);
   vertical-align:middle;
   white-space:nowrap;
-  font-variant-numeric: tabular-nums;
 }
 tbody tr:last-child td{ border-bottom:none; }
 
@@ -127,41 +121,55 @@ th{
 }
 
 /* Alignment */
+td.num, th.num { text-align:right; }
 th.left, td.left { text-align:left; }
-td.num, th.num   { text-align:center; } /* numeric columns centered for visual balance */
 
-/* --- VALUE TABLE column widths (first flexible, 3 numeric even) --- */
-#valueTable th:nth-child(1), #valueTable td:nth-child(1){ text-align:left; width:34%; }
-#valueTable th:nth-child(2), #valueTable td:nth-child(2){ width:22%; }
-#valueTable th:nth-child(3), #valueTable td:nth-child(3){ width:22%; }
-#valueTable th:nth-child(4), #valueTable td:nth-child(4){ width:22%; padding-right:18px; }
+/* Right-align numeric headers */
+#valueTable thead th:nth-child(2),
+#valueTable thead th:nth-child(3),
+#valueTable thead th:nth-child(4),
+#omegaTable  thead th:nth-child(2),
+#omegaTable  thead th:nth-child(3),
+#omegaTable  thead th:nth-child(4),
+#omegaTable  thead th:nth-child(5){
+  text-align:right;
+}
 
-/* --- OMEGA TABLE column widths (5 columns, balanced) --- */
-#omegaTable th:nth-child(1), #omegaTable td:nth-child(1){ text-align:left; width:26%; }
-#omegaTable th:nth-child(2), #omegaTable td:nth-child(2){ width:18%; }
-#omegaTable th:nth-child(3), #omegaTable td:nth-child(3){ width:18%; }
-#omegaTable th:nth-child(4), #omegaTable td:nth-child(4){ width:18%; }
-#omegaTable th:nth-child(5), #omegaTable td:nth-child(5){ width:20%; padding-right:18px; }
+/* Header colors (green $, yellow PLEX, cyan Ƶ) */
+#valueTable thead th:nth-child(2),
+#omegaTable  thead th:nth-child(2){               /* $ column headers */
+  color:var(--cash-green); font-weight:700;
+}
+#valueTable thead th:nth-child(3),
+#omegaTable  thead th:nth-child(4){               /* $/PLEX and $/month: base $ is green */
+  color:var(--cash-green); font-weight:700;
+}
+#valueTable thead th:nth-child(4),
+#omegaTable  thead th:nth-child(5){               /* $/B Ƶ and PLEX exchange: base $ green */
+  color:var(--cash-green); font-weight:700;
+}
+/* keep slash and tokens colored inside colored <th> */
+#valueTable thead .slash,
+#omegaTable  thead .slash{ color:#ffffff; }
+#valueTable thead .plex-word,
+#omegaTable  thead .plex-word{ color:var(--plex-yellow); font-weight:700; }
+#valueTable thead .isk-word{ color:var(--accent); font-weight:700; }
 
-/* Row highlight (kept if used) */
+/* Row highlight (if you re-enable pills later) */
 tr.highlight td{
   background:rgba(76,194,255,0.08);
   background-clip:padding-box;
 }
 
-/* Currency color helpers */
+/* Currency helpers (for inline spans, if used in cells) */
 .is-cash { color:var(--cash-green); font-weight:700; }
 .is-plex { color:var(--plex-yellow); font-weight:700; }
-.is-isk  { color:var(--isk-cyan);  font-weight:700; }
-.slash   { color:#ffffff;          font-weight:700; }
+.is-isk  { color:var(--accent); font-weight:700; }
 
-/* Re-color specific table headers when you used spans inside th */
-#valueTable thead th .is-cash,
-#omegaTable thead th .is-cash{ color:var(--cash-green); font-weight:700; }
-#valueTable thead th .is-plex,
-#omegaTable thead th .is-plex{ color:var(--plex-yellow); font-weight:700; }
-#valueTable thead th .is-isk,
-#omegaTable thead th .is-isk{ color:var(--isk-cyan); font-weight:700; }
+/* Keep numeric columns tidy without shifting spacing you liked */
+#valueTable td.num, #valueTable th.num,
+#omegaTable  td.num, #omegaTable  th.num{
+  font-variant-numeric: tabular-nums;
+}
 
-/* Keep nav tidy on small screens */
 @media (max-width:520px){ .nav{display:none} }
