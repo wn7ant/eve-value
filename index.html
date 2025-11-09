@@ -25,11 +25,10 @@
 
 <main class="container">
   <section id="calculator" class="hero">
+
     <!-- Banner: PLEX / Ƶ rate + timestamp -->
     <h2 class="plexrate">
-      <span class="plex-word">PLEX</span>
-      <span class="slash">/</span>
-      <span class="isk-word">Ƶ</span>
+      <span class="plex-word">PLEX</span><span class="slash"> / </span><span class="isk-word">Ƶ</span>
       <span id="plexRate" class="rate">—</span>
       <small id="asOf" class="asof">as of —</small>
     </h2>
@@ -60,13 +59,25 @@
 
     <!-- Packs table -->
     <div class="table-wrap">
-      <table id="valueTable">
+      <table id="valueTable" class="table-fixed">
+        <colgroup>
+          <col style="width:32%">
+          <col style="width:22%">
+          <col style="width:18%">
+          <col style="width:28%">
+        </colgroup>
         <thead>
           <tr>
             <th class="left">Quantity</th>
-            <th class="num">Cash Price</th>
-            <th class="num">$ / PLEX</th>
-            <th class="num">$ / Billion ISK</th>
+            <th class="num">
+              <span class="is-cash">$</span>
+            </th>
+            <th class="num">
+              <span class="is-cash">$</span><span class="slash">/</span><span class="is-plex">PLEX</span>
+            </th>
+            <th class="num">
+              <span class="is-cash">$</span><span class="slash">/</span><span class="is-isk">B Ƶ</span>
+            </th>
           </tr>
         </thead>
         <tbody id="tableBody">
@@ -75,33 +86,30 @@
       </table>
     </div>
 
-    <!-- Omega comparison -->
-    <h2 style="margin-top:28px">Omega: Cash vs PLEX</h2>
+    <!-- Omega comparison (whatever you currently have stays) -->
+    <h2 style="margin-top:28px">Omega: Cash vs PLEX (using best $/PLEX above)</h2>
     <div class="table-wrap">
-       <table id="omegaTable">
-         <thead>
-           <tr>
-             <th class="left">Duration</th>
-             <th class="header-cash">$</th>
-             <th class="header-plex">PLEX</th>
-             <th class="header-month">$/month</th>
-             <th class="header-plex-x">PLEX exchange</th>
-           </tr>
-         </thead>
-           <tbody id="omegaBody">
-             <tr><td colspan="5" class="muted">Loading omega plans…</td></tr>
-           </tbody>
-       </table>
-     </div>
+      <table id="omegaTable" class="table-fixed">
+        <thead>
+          <tr>
+            <th class="left">Duration</th>
+            <th class="num"><span class="is-cash">$</span></th>
+            <th class="num"><span class="is-plex">PLEX</span></th>
+            <th class="num"><span class="is-cash">$</span><span class="slash">/</span>month</th>
+            <th class="num"><span class="is-plex">PLEX</span> exchange</th>
+          </tr>
+        </thead>
+        <tbody id="omegaBody">
+          <tr><td colspan="5" class="muted">Loading omega plans…</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-    <!--<div class="legend muted">
-      <span class="pill best">Best</span> = lowest cost-per-unit in its column
-    </div>-->
   </section>
 
   <section id="about" class="section">
     <h2>About</h2>
-    <p>PLEX price is fetched once from the official ESI “markets/prices” endpoint.</p>
+    <p>Static calculator. Cash pack prices come from static files. PLEX price is fetched once from the official ESI “markets/prices” endpoint.</p>
     <p class="muted">EVE Online® and CCP are trademarks of CCP hf. This site is not affiliated with or endorsed by CCP.</p>
   </section>
 </main>
