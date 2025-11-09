@@ -41,10 +41,10 @@ body{
 
 /* Banner (PLEX / Ƶ …) */
 .plexrate{
-  margin:0;                  /* keep tight to align with button */
+  margin:0;
   font-size:1.25rem;
   display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
-  line-height:1.15;          /* helps align visual midline to button */
+  line-height:1.15;
 }
 .plexrate .plex-word{ color:var(--plex-yellow); font-weight:700; }
 .plexrate .slash{ color:#ffffff; font-weight:700; }
@@ -52,31 +52,27 @@ body{
 .plexrate .rate{ font-variant-numeric:tabular-nums; }
 .plexrate .asof{ color:var(--muted); }
 
-/* Toolbar: button ABOVE the panel, right side, cyan bg + yellow text */
-.hero{position:relative; padding-block:18px 24px;} /* slightly tighter top */
-.toolbar{
-  position:absolute; right:0; top:0;
-  display:flex; align-items:center;
-}
+/* Toolbar (button above the panel, right side) */
+.hero{position:relative; padding-block:18px 24px;}
+.toolbar{ position:absolute; right:0; top:0; display:flex; align-items:center; }
 .btn-refresh{
   --btn-h:38px;
   height:var(--btn-h);
   padding:0 16px;
   border-radius:10px;
   border:1px solid var(--line);
-  background:var(--accent);              /* cyan */
-  color:var(--plex-yellow);              /* yellow text */
+  background:var(--accent);          /* cyan */
+  color:var(--plex-yellow);          /* yellow text */
   font-weight:700;
   box-shadow:var(--shadow);
   cursor:pointer;
 }
 .btn-refresh:hover{filter:brightness(1.08)}
 
-/* Filter panel (reduced height ~80%) */
+/* Filter panel (reduced height) */
 .panel{background:linear-gradient(180deg, var(--panel), var(--panel-2));
   border:1px solid var(--line); border-radius:var(--radius);
-  padding:12px;                           /* was 16px */
-  box-shadow:var(--shadow); margin:12px 0 16px;
+  padding:12px; box-shadow:var(--shadow); margin:12px 0 16px;
 }
 .panel--filters{padding-block:10px}
 label{display:grid; gap:6px; font-size:.95rem; color:var(--muted)}
@@ -92,7 +88,7 @@ table{
   min-width:720px;
   border-collapse:separate;
   border-spacing:0;
-  table-layout:fixed;                     /* even column spacing control */
+  table-layout:fixed;
 }
 th, td{
   padding:10px 12px;
@@ -101,7 +97,6 @@ th, td{
   white-space:nowrap;
 }
 tbody tr:last-child td{ border-bottom:none; }
-
 th{
   position:sticky; top:0;
   background:#0e131a;
@@ -120,27 +115,63 @@ th.left, td.left { text-align:left; }
 .is-isk  { color:var(--accent); font-weight:700; }
 .slash   { color:#ffffff; font-weight:700; }
 
-/* ---------- HEADER COLOR RULES (only $ signs need to be green) ---------- */
-/* Value table: $, $/PLEX, $/B Ƶ */
-#valueTable thead th:nth-child(2),
-#valueTable thead th:nth-child(3),
-#valueTable thead th:nth-child(4){
-  color:var(--cash-green);                /* makes the $ green */
-}
-/* Omega table: $, $/month (leave col 5 default; PLEX word is colored by span) */
-#omegaTable thead th:nth-child(2),
-#omegaTable thead th:nth-child(4){
-  color:var(--cash-green);
+/* =======================
+   HEADER COLOR ENFORCERS
+   (only colors; layout unchanged)
+   ======================= */
+
+/* VALUE TABLE --------------- */
+#valueTable thead th:nth-child(2){            /* lone $ header */
+  color: var(--cash-green);
 }
 
-/* Keep colored spans inside headers */
+/* $/PLEX — make just the first character ($) green */
+#valueTable thead th:nth-child(3)::first-letter{
+  color: var(--cash-green);
+}
+/* PLEX word stays yellow via .plex-word in your HTML */
+
+/* $/B Ƶ — first character ($) green; '/B ' is inside .slash (white); Ƶ stays cyan */
+#valueTable thead th:nth-child(4)::first-letter{
+  color: var(--cash-green);
+}
+
+/* OMEGA TABLE --------------- */
+
+/* Column 2 is lone $ */
+#omegaTable thead th:nth-child(2){
+  color: var(--cash-green);
+}
+
+/* Column 3 is plain text 'PLEX' */
+#omegaTable thead th:nth-child(3){
+  color: var(--plex-yellow);
+}
+
+/* Column 4 is '$/month' — paint only the first character ($) green;
+   '/' is .slash (white), 'month' should be white (th color) */
+#omegaTable thead th:nth-child(4){
+  color: var(--text);                 /* ensure 'month' is white */
+}
+#omegaTable thead th:nth-child(4)::first-letter{
+  color: var(--cash-green);           /* $ */
+}
+
+/* Column 5 is 'PLEX exchange' — PLEX already wrapped in .plex-word (yellow);
+   force the rest ('exchange') to white */
+#omegaTable thead th:nth-child(5){
+  color: var(--text);                 /* white for 'exchange' */
+}
+/* keep the wrapped 'PLEX' yellow */
 #valueTable thead .plex-word,
 #omegaTable thead .plex-word{ color:var(--plex-yellow); font-weight:700; }
+/* keep Ƶ cyan */
 #valueTable thead .isk-word{ color:var(--accent); font-weight:700; }
+/* slashes and the 'B' inside your slash span stay white */
 #valueTable thead .slash,
 #omegaTable thead .slash{ color:#ffffff; }
 
-/* Column widths & even spacing (unchanged) */
+/* Column widths & spacing (unchanged from your working look) */
 #valueTable thead th:nth-child(1),
 #valueTable tbody td:nth-child(1){ width:34%; text-align:left; }
 #valueTable thead th:nth-child(2),
@@ -150,7 +181,6 @@ th.left, td.left { text-align:left; }
 #valueTable thead th:nth-child(4),
 #valueTable tbody td:nth-child(4){ width:22%; }
 
-/* Omega table: five columns, evenly spaced on the right side */
 #omegaTable thead th:nth-child(1),
 #omegaTable tbody td:nth-child(1){ width:28%; text-align:left; }
 #omegaTable thead th:nth-child(2),
@@ -162,13 +192,13 @@ th.left, td.left { text-align:left; }
 #omegaTable thead th:nth-child(5),
 #omegaTable tbody td:nth-child(5){ width:18%; }
 
-/* Keep digits aligned nicely */
+/* Digit alignment */
 #valueTable td.num, #valueTable th.num,
 #omegaTable td.num, #omegaTable th.num{
   font-variant-numeric:tabular-nums;
 }
 
-/* Row highlight (if re-used elsewhere) */
+/* Row highlight (if re-used) */
 tr.highlight td{
   background:rgba(76,194,255,0.08);
   background-clip:padding-box;
