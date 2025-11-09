@@ -26,14 +26,22 @@
 <main class="container">
   <section id="calculator" class="hero">
 
-    <!-- Banner: PLEX / Ƶ rate + timestamp -->
+    <!-- PLEX / Ƶ Banner -->
     <h2 class="plexrate">
-      <span class="plex-word">PLEX</span><span class="slash"> / </span><span class="isk-word">Ƶ</span>
+      <span class="plex-word">PLEX</span>
+      <span class="slash">/</span>
+      <span class="isk-word">Ƶ</span>
       <span id="plexRate" class="rate">—</span>
       <small id="asOf" class="asof">as of —</small>
     </h2>
 
-    <div class="panel">
+    <!-- NEW: Refresh button moved ABOVE the panel -->
+    <div class="toolbar">
+      <button class="btn-refresh" id="refresh">Refresh Prices</button>
+    </div>
+
+    <!-- Filter panel (height reduced 20%) -->
+    <div class="panel panel--filters">
       <div class="grid-3">
         <label>Currency
           <select id="currency">
@@ -54,30 +62,17 @@
           </select>
         </label>
       </div>
-      <button class="btn" id="refresh">Refresh Prices</button>
     </div>
 
-    <!-- Packs table -->
+    <!-- PLEX Value Table -->
     <div class="table-wrap">
-      <table id="valueTable" class="table-fixed">
-        <colgroup>
-          <col style="width:32%">
-          <col style="width:22%">
-          <col style="width:18%">
-          <col style="width:28%">
-        </colgroup>
+      <table id="valueTable">
         <thead>
           <tr>
             <th class="left">Quantity</th>
-            <th class="num">
-              <span class="is-cash">$</span>
-            </th>
-            <th class="num">
-              <span class="is-cash">$</span><span class="slash">/</span><span class="is-plex">PLEX</span>
-            </th>
-            <th class="num">
-              <span class="is-cash">$</span><span class="slash">/</span><span class="is-isk">B Ƶ</span>
-            </th>
+            <th class="num">$</th>
+            <th class="num">$<span class="slash">/</span><span class="plex-word">PLEX</span></th>
+            <th class="num">$<span class="slash">/B </span><span class="isk-word">Ƶ</span></th>
           </tr>
         </thead>
         <tbody id="tableBody">
@@ -86,17 +81,17 @@
       </table>
     </div>
 
-    <!-- Omega comparison (whatever you currently have stays) -->
+    <!-- Omega -->
     <h2 style="margin-top:28px">Omega: Cash vs PLEX</h2>
     <div class="table-wrap">
-      <table id="omegaTable" class="table-fixed">
+      <table id="omegaTable">
         <thead>
           <tr>
             <th class="left">Duration</th>
-            <th class="num"><span class="is-cash">$</span></th>
-            <th class="num"><span class="is-plex">PLEX</span></th>
-            <th class="num"><span class="is-cash">$</span><span class="slash">/</span>month</th>
-            <th class="num"><span class="is-plex">PLEX</span> exchange</th>
+            <th class="num">$</th>
+            <th class="num">PLEX</th>
+            <th class="num">$<span class="slash">/</span>month</th>
+            <th class="num"><span class="plex-word">PLEX</span> exchange</th>
           </tr>
         </thead>
         <tbody id="omegaBody">
