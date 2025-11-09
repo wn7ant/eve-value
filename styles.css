@@ -5,8 +5,8 @@
   --panel-2:#0f141b;
   --text:#e6edf3;
   --muted:#a9b4c0;
-  --accent:#4cc2ff;         /* Ƶ / links */
-  --plex-yellow:#f2c94c;    /* EVE-like PLEX yellow */
+  --accent:#4cc2ff;         /* Ƶ / links / refresh background */
+  --plex-yellow:#f2c94c;    /* EVE-like PLEX yellow / refresh text */
   --line:#1f2a36;
   --btn:#1a2430;
   --btn-hover:#223142;
@@ -52,13 +52,61 @@ body{
 
 /* Panels & buttons */
 .hero{padding-block:28px 24px}
-.panel{background:linear-gradient(180deg, var(--panel), var(--panel-2));
-  border:1px solid var(--line); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin:12px 0}
+
+/* Make the control panel ~20% shorter and position the refresh button */
+.panel{
+  background:linear-gradient(180deg, var(--panel), var(--panel-2));
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  /* reduced padding (height) 16px -> 12px block */
+  padding:12px 16px;
+  box-shadow:var(--shadow);
+  margin:12px 0;
+  position:relative;               /* anchor for absolute refresh button */
+}
+
+/* Compact selects to help reduce height */
 label{display:grid; gap:6px; font-size:.95rem; color:var(--muted)}
-select{padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#0a0f14; color:var(--text)}
-.btn{display:inline-block;padding:10px 16px;border-radius:10px;background:var(--btn);color:var(--text);
-  text-decoration:none;border:1px solid var(--line);box-shadow:var(--shadow);cursor:pointer}
+select{
+  padding:8px 12px;                /* was 10px 12px */
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:#0a0f14;
+  color:var(--text)
+}
+
+/* Base button (kept for any other buttons) */
+.btn{
+  display:inline-block;
+  padding:10px 16px;
+  border-radius:10px;
+  background:var(--btn);
+  color:var(--text);
+  text-decoration:none;
+  border:1px solid var(--line);
+  box-shadow:var(--shadow);
+  cursor:pointer
+}
 .btn:hover{background:var(--btn-hover)}
+
+/* Refresh button: move to top-right of the panel + new colors */
+#refresh{
+  position:absolute;
+  top:10px;
+  right:16px;
+  background:var(--accent);        /* cyan */
+  color:var(--plex-yellow);        /* yellow text */
+  border-color:transparent;
+  font-weight:700;
+}
+#refresh:hover{
+  filter:brightness(0.95);
+}
+
+/* On narrow screens, return the button to normal flow to avoid overlap */
+@media (max-width:720px){
+  #refresh{ position:static; margin-top:10px; }
+}
 
 /* Selector row: keep 3 side-by-side */
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -127,11 +175,11 @@ tr.highlight td{
 #valueTable th.num,
 #omegaTable td.num,
 #omegaTable th.num {
-  text-align:center;               /* visually centers column content */
+  text-align:center;                   /* visually centers column content */
   font-variant-numeric: tabular-nums;  /* keeps digits lined up */
 }
 
-/* Slight spacing adjustment so middle columns don't "lean" */
+/* Slight spacing tweak so middle columns don't lean */
 #valueTable td.num:nth-child(3),
 #valueTable th.num:nth-child(3) {
   padding-left: 16px;
