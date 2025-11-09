@@ -122,4 +122,20 @@ tr.highlight td{
 .site-footer{border-top:1px solid var(--line);background:rgba(11,15,20,.6)}
 .site-footer small{color:var(--muted)}
 
+/* Balance spacing between numeric columns in both tables */
+#valueTable td.num,
+#valueTable th.num,
+#omegaTable td.num,
+#omegaTable th.num {
+  text-align:center;               /* visually centers column content */
+  font-variant-numeric: tabular-nums;  /* keeps digits lined up */
+}
+
+/* Slight spacing adjustment so middle columns don't "lean" */
+#valueTable td.num:nth-child(3),
+#valueTable th.num:nth-child(3) {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
 @media (max-width:520px){ .nav{display:none} }
