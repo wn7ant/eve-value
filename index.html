@@ -25,8 +25,7 @@
 
 <main class="container">
   <section id="calculator" class="hero">
-
-    <!-- NEW banner: PLEX / Ƶ RATE + timestamp -->
+    <!-- Banner: PLEX / Ƶ rate + timestamp -->
     <h2 class="plexrate">
       <span class="plex-word">PLEX</span>
       <span class="slash">/</span>
@@ -57,7 +56,6 @@
         </label>
       </div>
       <button class="btn" id="refresh">Refresh Prices</button>
-      <!-- removed lastUpdate line; banner above shows it -->
     </div>
 
     <!-- Packs table -->
@@ -77,20 +75,21 @@
       </table>
     </div>
 
-    <!-- Omega comparison (unchanged structure) -->
+    <!-- Omega comparison -->
     <h2 style="margin-top:28px">Omega: Cash vs PLEX (using best $/PLEX above)</h2>
     <div class="table-wrap">
       <table id="omegaTable">
         <thead>
           <tr>
             <th class="left">Duration</th>
-            <th class="num">Cash Price</th>
-            <th class="num">PLEX Needed</th>
-            <th class="num">Cost via PLEX</th>
+            <th class="num"><span class="is-cash">$</span></th>
+            <th class="num"><span class="is-plex">PLEX</span></th>
+            <th class="num"><span class="is-cash">$</span>/month</th>
+            <th class="num"><span class="is-plex">PLEX</span> exchange</th>
           </tr>
         </thead>
         <tbody id="omegaBody">
-          <tr><td colspan="4" class="muted">Loading omega plans…</td></tr>
+          <tr><td colspan="5" class="muted">Loading omega plans…</td></tr>
         </tbody>
       </table>
     </div>
