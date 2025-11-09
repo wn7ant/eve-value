@@ -144,7 +144,173 @@ function computeOmega() {
   if (!bestDollarPerPLEX) {
     OMEGA_BODY.innerHTML = '<tr><td colspan="5" class="muted">Waiting for best $/PLEX from packs…</td></tr>';
     return;
+  }// EVE Value Calculator — ESI-only, GitHub Pages friendly
+// Data sources:
+// - Cash packs: packs.json (you maintain)
+// - Omega plans: omega.json (you maintain)
+// - ISK per PLEX (for $/B ISK in packs table): ESI prices endpoint (type_id=44992)
+
+const TBODY    = document.getElementById('tableBody');
+const OMEGA_TB = document.getElementById('omegaBody');
+const YEAR     = document.getElementById('year');
+const LAST     = document.getElementById('lastUpdate');
+
+YEAR && (YEAR.textContent = new Date().getFullYear());
+
+// -------------------- Config --------------------
+const ESI_PRICES_URL = 'https://esi.evetech.net/latest/markets/prices/?datasource=tranquility';
+const TYPE_PLEX = 44992;
+
+// -------------------- State --------------------
+let packs = [];
+let omegaPlans = [];
+let iskPerPLEX = null;          // for $/B ISK column in packs table
+let bestDollarPerPLEX = null;   // BEST $/PLEX from packs table (used by Omega math)
+
+// -------------------- Helpers --------------------
+const fmt = (n, d = 2) => (n === null || n === undefined || Number.isNaN(n)) ? '—'
+  : Number(n).toLocaleString(undefined, { maximumFractionDigits: d });
+
+function showStatus(msg, isError=false){
+  TBODY.innerHTML = `<tr><td colspan="5" class="${isError?'':'muted'}">${msg}</td></tr>`;
+}
+
+function indexOfStrictMin(arr){
+  let bi = 0, bv = arr[0];
+  for (let i=1;i<arr.length;i++){
+    const v = arr[i];
+    if (v < bv - 1e-9){ bv=v; bi=i; }
   }
+  return bi;
+}
+
+function monthsFromLabel(label){
+  // "1 Month", "3 Months", "24 Months" -> 1,3,24
+  const m = String(label).match(/(\d+)\s*Month/);
+  const n = m ? Number(m[1]) : 1;
+  return (Number.isFinite(n) && n > 0) ? n : 1;
+}
+
+// -------------------- Loads --------------------
+async function loadPacks(){
+  const res = await fetch('packs.json', { cache:'no-store' });
+  if(!res.ok) throw new Error(`packs.json HTTP ${res.status}`);
+  packs = await res.json();
+}
+
+async function loadOmega(){
+  const res = await fetch('omega.json', { cache:'no-store' });
+  if(!res.ok) throw new Error(`omega.json HTTP ${res.status}`);
+  omegaPlans = await res.json();
+}
+
+async function fetchPLEXFromESIPrices(){
+  const res = await fetch(ESI_PRICES_URL, { cache:'no-store' });
+  if(!res.ok) throw new Error(`ESI prices HTTP ${res.status}`);
+  const data = await res.json();
+  const row = Array.isArray(data) ? data.find(d => Number(d.type_id) === TYPE_PLEX) : null;
+  if(!row) throw new Error(`PLEX (type_id=${TYPE_PLEX}) not found in ESI prices.`);
+  const avg = Number(row.average_price);
+  const adj = Number(row.adjusted_price);
+  const chosen = Number.isFinite(avg) && avg>0 ? avg : (Number.isFinite(adj)&&adj>0 ? adj : NaN);
+  if(!Number.isFinite(chosen) || chosen<=0) throw new Error('PLEX price missing or zero in ESI prices.');
+  iskPerPLEX = chosen;
+  LAST && (LAST.textContent = `PLEX via ESI prices: ${new Date().toLocaleString()}`);
+}
+
+// -------------------- Packs table --------------------
+function renderPacks(){
+  if (!packs.length){ showStatus('No packs loaded.'); return; }
+  if (!iskPerPLEX){ showStatus('Waiting for PLEX price…'); return; }
+
+  const rows = packs.map(p => {
+    const price = (p.sale_price_usd ?? p.price_usd);
+    const perPLEX = price / p.plex_amount;                 // $ / PLEX
+    const dollarsPerBillionISK = (price / (p.plex_amount * iskPerPLEX)) * 1_000_000_000; // $ / 1B ISK
+    return { ...p, price, perPLEX, dollarsPerBillionISK };
+  });
+
+  // pick exactly one best row for $/PLEX and $/B ISK
+  const bestPerPLEXIdx = indexOfStrictMin(rows.map(r => r.perPLEX));
+  const bestPerBIdx    = indexOfStrictMin(rows.map(r => r.dollarsPerBillionISK));
+
+  // store BEST $/PLEX for Omega math
+  bestDollarPerPLEX = rows[bestPerPLEXIdx].perPLEX;
+
+  TBODY.innerHTML = rows.map((r, i) => {
+    const isBestPerPLEX = (i === bestPerPLEXIdx);
+    const isBestPerB    = (i === bestPerBIdx);
+    const rowClass = (isBestPerPLEX || isBestPerB) ? ' class="highlight"' : '';
+
+    const perPLEXCell = `${isBestPerPLEX ? '<span class="pill best">Best</span>' : ''}<span class="numv">$${fmt(r.perPLEX, 4)}</span>`;
+    const perBCell    = `${isBestPerB ? '<span class="pill best">Best</span>' : ''}<span class="numv">$${fmt(r.dollarsPerBillionISK, 2)}</span>`;
+
+    return `<tr${rowClass}>
+      <td class="left">${r.name}${r.sale_price_usd ? ' <span class="pill">Sale</span>' : ''}</td>
+      <td class="num is-cash">$${fmt(r.price,2)}</td>
+      <td class="num leftpill">${perPLEXCell}</td>
+      <td class="num leftpill">${perBCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+// -------------------- Omega table --------------------
+// Math you requested:
+//  - Column “$/month” = cash_usd / months
+//  - Column “PLEX exchange” = (BEST $/PLEX from packs) * (plex_needed) / months
+function renderOmega(){
+  if(!omegaPlans.length){
+    OMEGA_TB.innerHTML = '<tr><td colspan="5" class="muted">No Omega data.</td></tr>';
+    return;
+  }
+  if(!bestDollarPerPLEX){
+    OMEGA_TB.innerHTML = '<tr><td colspan="5" class="muted">Waiting for BEST $/PLEX from packs…</td></tr>';
+    return;
+  }
+
+  const rows = omegaPlans.map(o => {
+    const months = monthsFromLabel(o.label);
+    const cashPerMonth = o.cash_usd / months;
+    const plexExchangePerMonth = (bestDollarPerPLEX * o.plex_cost) / months;  // <-- fixed math
+    return { ...o, months, cashPerMonth, plexExchangePerMonth };
+  });
+
+  const bestCashPmIdx = indexOfStrictMin(rows.map(r => r.cashPerMonth));
+  const bestPlexPmIdx = indexOfStrictMin(rows.map(r => r.plexExchangePerMonth));
+
+  OMEGA_TB.innerHTML = rows.map((r,i) => {
+    const bestCash = (i === bestCashPmIdx);
+    const bestPlex = (i === bestPlexPmIdx);
+
+    const cashPmCell = `${bestCash ? '<span class="pill best">Best</span>' : ''}<span class="numv is-cash">$${fmt(r.cashPerMonth,2)}</span>`;
+    const plexPmCell = `${bestPlex ? '<span class="pill best">Best</span>' : ''}<span class="numv is-cash">$${fmt(r.plexExchangePerMonth,2)}</span>`;
+
+    return `<tr${(bestCash||bestPlex) ? ' class="highlight"':''}>
+      <td class="left">${r.label}</td>
+      <td class="num is-cash">$${fmt(r.cash_usd,2)}</td>
+      <td class="num is-plex">${fmt(r.plex_cost,0)}</td>
+      <td class="num leftpill">${cashPmCell}</td>
+      <td class="num leftpill">${plexPmCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+// -------------------- Refresh Flow --------------------
+async function refresh(){
+  try{
+    showStatus('Loading…');
+    await Promise.all([loadPacks(), loadOmega(), fetchPLEXFromESIPrices()]);
+    renderPacks();
+    renderOmega();
+  }catch(e){
+    console.error(e);
+    showStatus(`Error: ${e.message}`, true);
+    if (OMEGA_TB) OMEGA_TB.innerHTML = `<tr><td colspan="5">Error: ${e.message}</td></tr>`;
+  }
+}
+
+document.getElementById('refresh')?.addEventListener('click', refresh);
+refresh();
 
   // Build omega rows with new columns
   const rows = omegaPlans.map(o => {
