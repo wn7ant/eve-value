@@ -5,8 +5,8 @@
   --panel-2:#0f141b;
   --text:#e6edf3;
   --muted:#a9b4c0;
-  --accent:#4cc2ff;         /* Ƶ / links */
-  --plex-yellow:#f2c94c;    /* EVE-like PLEX yellow */
+  --accent:#4cc2ff;      /* Ƶ / links */
+  --plex-yellow:#f2c94c; /* EVE-like PLEX yellow */
   --line:#1f2a36;
   --btn:#1a2430;
   --btn-hover:#223142;
@@ -38,7 +38,7 @@ body{
 .nav a{color:var(--muted);text-decoration:none;margin-left:20px}
 .nav a:hover{color:var(--text)}
 
-/* Banner (PLEX / Ƶ …) */
+/* Banner */
 .plexrate{
   margin:0 0 8px 0;
   font-size:1.25rem;
@@ -66,78 +66,47 @@ select{padding:10px 12px; border-radius:10px; border:1px solid var(--line); back
 /* Table wrappers */
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0f14}
 
-/* Tables: separate borders (Safari-friendly) */
-table{
-  width:100%;
-  min-width:720px;
-  border-collapse:separate;
-  border-spacing:0;
-}
-th, td{
-  padding:10px 12px;
-  border-bottom:1px solid var(--line);
-  vertical-align:middle;
-  white-space:nowrap;
-}
-tbody tr:last-child td{ border-bottom:none; }
+/* Tables (Safari-friendly borders) */
+table{width:100%;min-width:720px;border-collapse:separate;border-spacing:0}
+th, td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
 
-th{
-  position:sticky; top:0;
-  background:#0e131a;
-  font-weight:600;
-  z-index:1;
-  color:var(--text);
-}
+th{position:sticky;top:0;background:#0e131a;font-weight:600;z-index:1;color:var(--text)}
 
 /* Alignment */
-td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+td.num, th.num { text-align:right; }
 th.left, td.left { text-align:left; }
 
-/* Right-align numeric headers for both tables */
+/* Right-align numeric headers */
 #valueTable thead th:nth-child(2),
 #valueTable thead th:nth-child(3),
 #valueTable thead th:nth-child(4),
-#valueTable thead th:nth-child(5),
 #omegaTable thead th:nth-child(2),
 #omegaTable thead th:nth-child(3),
-#omegaTable thead th:nth-child(4){
+#omegaTable thead th:nth-child(4),
+#omegaTable thead th:nth-child(5){
   text-align:right;
 }
 
-/* Ensure first header in each table is left aligned */
-#valueTable thead th:first-child,
-#omegaTable thead th:first-child{ text-align:left; }
-
 /* Row highlight */
-tr.highlight td{
-  background:rgba(76,194,255,0.08);
-  background-clip:padding-box;
-}
+tr.highlight td{background:rgba(76,194,255,0.08);background-clip:padding-box}
 
-/* “Best” pill to LEFT; numbers stay right */
-.leftpill{ display:flex; align-items:center; gap:8px; }
-.leftpill .numv{ margin-left:auto; display:inline-block; text-align:right; min-width:6ch; }
+/* Best pill on LEFT; numbers stay right */
+.leftpill{display:flex;align-items:center;gap:8px}
+.leftpill .numv{margin-left:auto;display:inline-block;text-align:right;min-width:6ch}
 
 /* Pills */
-.pill{
-  display:inline-block;
-  padding:3px 8px;
-  border-radius:999px;
-  border:1px solid var(--line);
-  background:#0a0f14;
-  font-size:.85rem;
-  color:var(--muted);
-}
-.pill.best{ border-color:#297aa2; color:#cfeeff; }
+.pill{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid var(--line);background:#0a0f14;font-size:.85rem;color:var(--muted)}
+.pill.best{border-color:#297aa2;color:#cfeeff}
+
+/* Currency / Asset token colors (used in headers only) */
+.is-cash { color:#9bff9b; font-weight:700; }
+.is-plex { color:#ffd35c; font-weight:700; }
+.is-isk  { color:#71c8ff; font-weight:700; }
 
 /* Sections & footer */
 .section{margin-block:32px}
 .site-footer{border-top:1px solid var(--line);background:rgba(11,15,20,.6)}
 .site-footer small{color:var(--muted)}
-
-/* Currency / Asset accents (hook these in your HTML/JS) */
-.is-cash { color:#9bff9b; font-weight:600; }   /* $ */
-.is-plex { color:#ffd35c; font-weight:600; }   /* PLEX */
-.is-isk  { color:#71c8ff; font-weight:600; }   /* Ƶ (ISK) */
 
 @media (max-width:520px){ .nav{display:none} }
