@@ -78,7 +78,7 @@ body{
   padding:12px;                           /* was 16px */
   box-shadow:var(--shadow); margin:12px 0 16px;
 }
-.panel--filters{padding-block:10px}       /* a touch shorter */
+.panel--filters{padding-block:10px}
 label{display:grid; gap:6px; font-size:.95rem; color:var(--muted)}
 select{padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#0a0f14; color:var(--text)}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -114,18 +114,24 @@ th{
 td.num, th.num { text-align:center; }
 th.left, td.left { text-align:left; }
 
-/* Right-align the leftmost numeric column? no — we center numbers now */
-
 /* Currency color helpers (used in headers) */
 .is-cash { color:var(--cash-green); font-weight:700; }
 .is-plex { color:var(--plex-yellow); font-weight:700; }
 .is-isk  { color:var(--accent); font-weight:700; }
 .slash   { color:#ffffff; font-weight:700; }
 
-/* Header color rules for your current HTML */
-#valueTable thead th:nth-child(2){ color:var(--cash-green); } /* $ */
-#omegaTable thead th:nth-child(2){ color:var(--cash-green); } /* $ */
-#omegaTable thead th:nth-child(3){ color:var(--plex-yellow); } /* PLEX */
+/* ---------- HEADER COLOR RULES (only $ signs need to be green) ---------- */
+/* Value table: $, $/PLEX, $/B Ƶ */
+#valueTable thead th:nth-child(2),
+#valueTable thead th:nth-child(3),
+#valueTable thead th:nth-child(4){
+  color:var(--cash-green);                /* makes the $ green */
+}
+/* Omega table: $, $/month (leave col 5 default; PLEX word is colored by span) */
+#omegaTable thead th:nth-child(2),
+#omegaTable thead th:nth-child(4){
+  color:var(--cash-green);
+}
 
 /* Keep colored spans inside headers */
 #valueTable thead .plex-word,
@@ -134,32 +140,25 @@ th.left, td.left { text-align:left; }
 #valueTable thead .slash,
 #omegaTable thead .slash{ color:#ffffff; }
 
-/* Column widths & even spacing (not hugging right edge) */
+/* Column widths & even spacing (unchanged) */
 #valueTable thead th:nth-child(1),
 #valueTable tbody td:nth-child(1){ width:34%; text-align:left; }
-
 #valueTable thead th:nth-child(2),
 #valueTable tbody td:nth-child(2){ width:22%; }
-
 #valueTable thead th:nth-child(3),
 #valueTable tbody td:nth-child(3){ width:22%; }
-
 #valueTable thead th:nth-child(4),
 #valueTable tbody td:nth-child(4){ width:22%; }
 
 /* Omega table: five columns, evenly spaced on the right side */
 #omegaTable thead th:nth-child(1),
 #omegaTable tbody td:nth-child(1){ width:28%; text-align:left; }
-
 #omegaTable thead th:nth-child(2),
 #omegaTable tbody td:nth-child(2){ width:18%; }
-
 #omegaTable thead th:nth-child(3),
 #omegaTable tbody td:nth-child(3){ width:18%; }
-
 #omegaTable thead th:nth-child(4),
 #omegaTable tbody td:nth-child(4){ width:18%; }
-
 #omegaTable thead th:nth-child(5),
 #omegaTable tbody td:nth-child(5){ width:18%; }
 
